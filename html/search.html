@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>서울시의회 정보 서비스 - 검색 결과</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700&amp;family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+      body {
+        font-family: "Noto Sans KR", "Public Sans", sans-serif;
+      }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0052A4",
+              "background-light": "#f6f6f8",
+              "background-dark": "#101622",
+              "seoul-blue": "#0052A4",
+              "accent": "#2F9DFF",
+              "neutral-gray-dark": "#333333",
+              "neutral-gray-light": "#757575",
+            },
+            fontFamily: {
+              "display": ["Noto Sans KR", "Public Sans", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden bg-white dark:bg-neutral-900">
+<div class="flex items-center bg-white dark:bg-neutral-900 p-4 pb-2 justify-between sticky top-0 z-10 border-b border-gray-200 dark:border-neutral-800">
+<button class="text-neutral-gray-dark dark:text-gray-200 flex size-12 shrink-0 items-center justify-start -ml-2">
+<span class="material-symbols-outlined text-2xl">arrow_back</span>
+</button>
+<h2 class="text-neutral-gray-dark dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">검색 결과</h2>
+<div class="size-12 shrink-0"></div>
+</div>
+<div class="px-4 py-3 bg-white dark:bg-neutral-900 sticky top-[73px] z-10">
+<label class="flex flex-col min-w-40 h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+<div class="text-neutral-gray-light dark:text-gray-400 flex border-none bg-background-light dark:bg-background-dark items-center justify-center pl-4 rounded-l-lg border-r-0">
+<span class="material-symbols-outlined text-2xl">search</span>
+</div>
+<input id="search-input" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-none text-neutral-gray-dark dark:text-white focus:outline-0 focus:ring-0 border-none bg-background-light dark:bg-background-dark h-full placeholder:text-neutral-gray-light dark:placeholder:text-gray-400 px-2 text-base font-normal leading-normal" placeholder="검색어를 입력하세요"/>
+<div class="flex items-center justify-center rounded-r-lg border-l-0 border-none bg-background-light dark:bg-background-dark pr-4">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-transparent text-neutral-gray-dark gap-2 text-base font-bold leading-normal tracking-[0.015em] h-auto min-w-0 px-0">
+<span class="material-symbols-outlined text-2xl text-neutral-gray-light dark:text-gray-400">cancel</span>
+</button>
+</div>
+</div>
+</label>
+</div>
+<div class="bg-background-light dark:bg-background-dark flex-grow">
+<div class="flex justify-between items-center py-3 px-4">
+<p class="text-neutral-gray-dark dark:text-gray-300 text-sm font-normal leading-normal">검색결과: 0건</p>
+<div class="flex gap-2 items-center">
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-1.5 rounded-md bg-white dark:bg-neutral-800 pl-3 pr-2.5 text-neutral-gray-dark dark:text-gray-300 text-sm font-medium leading-normal border border-gray-200 dark:border-neutral-700">
+<span class="material-symbols-outlined text-lg">filter_list</span>
+<span>필터</span>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-1 rounded-md bg-white dark:bg-neutral-800 pl-3 pr-2 text-neutral-gray-dark dark:text-gray-300 text-sm font-medium leading-normal border border-gray-200 dark:border-neutral-700">
+<span>관련도순</span>
+<span class="material-symbols-outlined text-lg">arrow_drop_down</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col gap-2 pb-4" id="results-container">
+<!-- 검색 결과가 여기에 동적으로 추가됩니다 -->
+<div class="text-center py-10">
+<p class="text-neutral-gray-light">검색을 시작하세요...</p>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // URL에서 검색 쿼리 추출
+  const urlParams = new URLSearchParams(window.location.search);
+  const query = urlParams.get('query') || '';
+
+  // 검색 입력 필드에 쿼리 설정
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.value = query;
+    console.log('검색어 설정:', query);
+  } else {
+    console.error('검색 입력 필드를 찾을 수 없습니다');
+  }
+
+  // 뒤로 가기 버튼
+  const backButton = document.querySelector('button span.material-symbols-outlined');
+  if (backButton && backButton.textContent === 'arrow_back') {
+    backButton.parentElement.addEventListener('click', () => {
+      window.location.href = '/';
+    });
+  }
+
+  // 검색 취소 버튼
+  const cancelButton = document.querySelector('button span.material-symbols-outlined[class*="cancel"]');
+  if (cancelButton) {
+    cancelButton.parentElement.addEventListener('click', () => {
+      searchInput.value = '';
+      searchInput.focus();
+    });
+  }
+
+  // 검색 실행
+  async function performSearch(searchQuery) {
+    if (!searchQuery.trim()) return;
+
+    try {
+      // 로딩 표시
+      const resultsContainer = document.getElementById('results-container');
+      const totalResultsText = document.querySelector('.text-neutral-gray-dark.dark\\:text-gray-300.text-sm');
+
+      if (!resultsContainer) {
+        console.error('결과 컨테이너를 찾을 수 없습니다');
+        return;
+      }
+
+      totalResultsText.textContent = '검색 중...';
+      resultsContainer.innerHTML = '<div class="text-center py-10"><p class="text-neutral-gray-light">검색 중입니다...</p></div>';
+
+      // API 호출
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          n_results: 10
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('검색 실패');
+      }
+
+      const data = await response.json();
+
+      // 결과 개수 업데이트
+      totalResultsText.textContent = `검색결과: ${data.total_results}건`;
+
+      // 결과 렌더링
+      renderResults(data.results);
+
+    } catch (error) {
+      console.error('검색 오류:', error);
+      const resultsContainer = document.querySelector('.flex.flex-col.gap-2.pb-4');
+      resultsContainer.innerHTML = '<div class="text-center py-10"><p class="text-red-500">검색 중 오류가 발생했습니다.</p></div>';
+    }
+  }
+
+  // 검색 결과 렌더링
+  function renderResults(results) {
+    const resultsContainer = document.getElementById('results-container');
+
+    if (!resultsContainer) {
+      console.error('결과 컨테이너를 찾을 수 없습니다');
+      return;
+    }
+
+    if (results.length === 0) {
+      resultsContainer.innerHTML = '<div class="text-center py-10"><p class="text-neutral-gray-light">검색 결과가 없습니다.</p></div>';
+      return;
+    }
+
+    resultsContainer.innerHTML = results.map((result, index) => {
+      // 진행률 계산 (status에 따라)
+      let progress = 12.5;
+      let progressSteps = [false, false, false, false];
+
+      if (result.status.includes('원안가결') || result.status.includes('공포')) {
+        progress = 100;
+        progressSteps = [true, true, true, true];
+      } else if (result.status.includes('본회의')) {
+        progress = 62.5;
+        progressSteps = [true, true, true, false];
+      } else if (result.status.includes('위원회')) {
+        progress = 37.5;
+        progressSteps = [true, true, false, false];
+      } else {
+        progress = 12.5;
+        progressSteps = [true, false, false, false];
+      }
+
+      const borderClass = index === 0 ? 'border border-accent/50 dark:border-accent/70' : '';
+
+      return `
+        <div class="px-4">
+          <div class="flex flex-col items-stretch justify-start rounded-xl bg-white dark:bg-neutral-800 p-4 shadow-sm active:bg-gray-50 dark:active:bg-neutral-700/50 cursor-pointer ${borderClass}" onclick="window.location.href='/details?agenda_id=${result.agenda_id}'">
+            <div class="flex justify-between items-start gap-3 mb-2">
+              <p class="text-neutral-gray-dark dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1">${result.title || result.agenda}</p>
+            </div>
+            <div class="bg-gray-100 dark:bg-neutral-700/50 p-3 rounded-md mb-3">
+              <p class="text-neutral-gray-light dark:text-gray-300 text-sm font-medium leading-relaxed tracking-[-0.01em]">
+                <span class="font-bold text-primary dark:text-accent">AI 요약:</span> ${result.ai_summary}
+              </p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap text-sm text-neutral-gray-light dark:text-gray-400 mb-2">
+              <span>${result.main_speaker}</span>
+              <span class="text-gray-300 dark:text-neutral-600">|</span>
+              <span>${result.meeting_date}</span>
+              <span class="text-gray-300 dark:text-neutral-600">|</span>
+              <span class="font-semibold ${getStatusColor(result.status)}">${result.status}</span>
+            </div>
+            <div class="text-xs text-neutral-gray-light dark:text-gray-400 mb-4">
+              <p>회의: ${result.meeting_title}</p>
+              <p>유사도: ${(result.similarity * 100).toFixed(1)}%</p>
+            </div>
+            <div class="flex flex-col gap-2">
+              <p class="text-sm font-medium text-neutral-gray-dark dark:text-gray-300">의안 진행 과정</p>
+              <div class="relative w-full">
+                <div class="absolute top-1/2 -translate-y-1/2 h-2 w-full rounded-full bg-gray-200 dark:bg-neutral-700">
+                  <div class="h-2 rounded-full bg-primary dark:bg-accent" style="width: ${progress}%;"></div>
+                </div>
+                <div class="relative flex justify-between items-center">
+                  ${progressSteps.map(active => `
+                    <div class="size-4 rounded-full ${active ? 'bg-primary dark:bg-accent' : 'bg-white dark:bg-neutral-800'} border-2 border-${active ? 'white dark:border-neutral-800' : 'primary dark:border-accent'}"></div>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="grid grid-cols-4 text-center text-xs text-neutral-gray-light dark:text-gray-400 mt-1">
+                <span class="${progressSteps[0] ? 'text-primary dark:text-accent font-semibold' : ''}">접수</span>
+                <span class="${progressSteps[1] ? 'text-primary dark:text-accent font-semibold' : ''}">위원회 심사</span>
+                <span class="${progressSteps[2] ? 'text-primary dark:text-accent font-semibold' : ''}">본회의 심의</span>
+                <span class="${progressSteps[3] ? 'text-primary dark:text-accent font-semibold' : ''}">공포</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 상태에 따른 색상 클래스 반환
+  function getStatusColor(status) {
+    if (status.includes('원안가결') || status.includes('통과') || status.includes('공포')) {
+      return 'text-primary dark:text-accent';
+    } else if (status.includes('위원회')) {
+      return 'text-yellow-600 dark:text-yellow-400';
+    } else {
+      return 'text-neutral-gray-light dark:text-gray-400';
+    }
+  }
+
+  // Enter 키로 재검색
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const newQuery = searchInput.value.trim();
+        console.log('Enter 키 눌림, 검색어:', newQuery);
+        if (newQuery) {
+          window.location.href = `/search?query=${encodeURIComponent(newQuery)}`;
+        }
+      }
+    });
+  }
+
+  // 페이지 로드 시 검색 실행
+  if (query) {
+    performSearch(query);
+  }
+</script>
+</body></html>
