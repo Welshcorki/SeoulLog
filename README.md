@@ -1,5 +1,10 @@
 # SeoulLog - 서울시의회 안건 검색 서비스
 
+<div align="center">
+  <img src="diff.png" alt="SeoulLog vs 원래 서비스 비교" width="100%">
+  <p><i>기존 서울시 홈페이지(좌) vs SeoulLog 개선 서비스(우)</i></p>
+</div>
+
 서울시의회 회의록을 시민이 쉽게 검색하고 이해할 수 있는 AI 기반 검색 서비스
 
 ---
