@@ -1,7 +1,7 @@
 # SeoulLog - 서울시의회 안건 검색 서비스
 
 <div align="center">
-  <img src="image/diff.png" alt="SeoulLog vs 원래 서비스 비교" width="50%">
+  <img src="image/diff.png" alt="SeoulLog vs 원래 서비스 비교" width="75%">
   <p><i>기존 서울시 홈페이지(좌) vs SeoulLog 개선 서비스(우)</i></p>
 </div>
 
