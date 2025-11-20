@@ -6,6 +6,7 @@ ChromaDB에서 회의록 검색 스크립트
 """
 
 import chromadb
+from chromadb.config import Settings
 from typing import List, Dict, Optional
 from datetime import datetime
 import os
@@ -32,7 +33,10 @@ class MeetingSearcher:
             collection_name: ChromaDB 컬렉션 이름
             persist_directory: ChromaDB 저장 경로
         """
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.client = chromadb.PersistentClient(
+            path=persist_directory,
+            settings=Settings(anonymized_telemetry=False)
+        )
 
         # OpenAI Embedding 함수 생성 (삽입할 때와 동일한 모델 사용)
         openai_ef = CustomOpenAIEmbeddingFunction(
