@@ -25,13 +25,17 @@ for row in cursor.fetchall():
 
 # ChromaDB 확인
 import chromadb
+from chromadb.config import Settings
 from utils.custom_openai_embedding import CustomOpenAIEmbeddingFunction
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-chroma_client = chromadb.PersistentClient(path="./data/chroma_db")
+chroma_client = chromadb.PersistentClient(
+    path="./data/chroma_db",
+    settings=Settings(anonymized_telemetry=False)
+)
 openai_ef = CustomOpenAIEmbeddingFunction(
     api_key=os.getenv("OPENAI_API_KEY"),
     model_name="text-embedding-3-small"

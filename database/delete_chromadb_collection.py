@@ -3,6 +3,7 @@ ChromaDB 컬렉션 삭제 스크립트
 """
 
 import chromadb
+from chromadb.config import Settings
 
 def delete_collection(
     collection_name: str = "seoul_council_meetings",
@@ -16,7 +17,10 @@ def delete_collection(
         print(f"   컬렉션: {collection_name}")
         print(f"   경로: {persist_directory}\n")
 
-        client = chromadb.PersistentClient(path=persist_directory)
+        client = chromadb.PersistentClient(
+            path=persist_directory,
+            settings=Settings(anonymized_telemetry=False)
+        )
 
         # 기존 컬렉션 목록 확인
         collections = client.list_collections()

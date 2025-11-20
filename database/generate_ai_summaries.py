@@ -1,17 +1,22 @@
 """
-AI 요약 생성 스크립트
+AI 요약 생성 스크립트 (비동기 병렬 처리)
 
 이미 생성된 SQLite DB의 agenda_chunks를 읽어서 AI 요약을 생성하고
 agendas 테이블의 ai_summary, key_issues를 업데이트합니다.
 
 사용법:
     python database/generate_ai_summaries.py
+
+특징:
+    - 비동기 병렬 처리 (10개 안건 동시 처리)
+    - 속도 약 10배 향상
 """
 
 import json
 import sqlite3
 import os
-import time
+import asyncio
+import threading
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -31,6 +36,11 @@ else:
 # SQLite DB 경로
 SQLITE_DB_PATH = "data/sqlite_DB/agendas.db"
 
+# 전역 카운터 (스레드 안전)
+lock = threading.Lock()
+completed_count = 0
+failed_count = 0
+
 
 def chunk_text(text, chunk_size=2000):
     """텍스트를 일정 크기로 청킹 (글자 수 기준)"""
@@ -40,8 +50,8 @@ def chunk_text(text, chunk_size=2000):
     return chunks
 
 
-def summarize_text_chunk(text_chunk, agenda_title, chunk_index):
-    """텍스트 청크 하나를 요약 (글자 수 제한 없음, 자유롭게)"""
+async def summarize_text_chunk_async(text_chunk, agenda_title, chunk_index):
+    """텍스트 청크 하나를 요약 (비동기)"""
     if not client or not text_chunk.strip():
         return None
 
@@ -52,24 +62,24 @@ def summarize_text_chunk(text_chunk, agenda_title, chunk_index):
 
 위 내용을 간결하게 요약하세요. 핵심 내용을 중심으로 요약문만 반환하세요."""
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt
         )
         summary = response.text.strip()
 
-        # API 속도 제한 방지: 각 호출 사이 5초 대기
-        time.sleep(5)
+        # 비동기 대기 (다른 작업 가능)
+        await asyncio.sleep(1)
 
         return summary
     except Exception as e:
         print(f"  ⚠️ 청크 요약 실패 (청크 {chunk_index}): {e}")
-        time.sleep(6)  # 에러 발생 시 6초 대기 후 다음 요청
+        await asyncio.sleep(2)
         return None
 
 
-def summarize_agenda(chunk_summaries, agenda_title):
-    """청크 요약들을 합쳐서 최종 요약 (100-150자)"""
+async def summarize_agenda_async(chunk_summaries, agenda_title):
+    """청크 요약들을 합쳐서 최종 요약 (비동기)"""
     if not client or not chunk_summaries:
         return None
 
@@ -90,24 +100,23 @@ def summarize_agenda(chunk_summaries, agenda_title):
 
 요약문만 반환하세요."""
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt
         )
         summary = response.text.strip()
 
-        # API 속도 제한 방지
-        time.sleep(5)
+        await asyncio.sleep(1)
 
         return summary[:160]  # 최대 160자로 제한
     except Exception as e:
         print(f"  ⚠️ 최종 요약 실패: {e}")
-        time.sleep(6)
+        await asyncio.sleep(2)
         return None
 
 
-def extract_key_issues(chunk_summaries, agenda_title):
-    """핵심 의제 3-5개 추출"""
+async def extract_key_issues_async(chunk_summaries, agenda_title):
+    """핵심 의제 추출 (비동기)"""
     if not client or not chunk_summaries:
         return None
 
@@ -121,37 +130,117 @@ def extract_key_issues(chunk_summaries, agenda_title):
 
 {combined}
 
-이 안건의 핵심 의제 3-5가지를 추출하세요.
-각 의제는 한 줄로 간결하게 작성하세요.
-JSON 배열 형식으로만 반환하세요.
+이 안건의 핵심 의제를 추출하세요.
+- 개수는 안건의 복잡도에 따라 자유롭게 결정하세요 (단, 너무 많으면 안 됩니다)
+- 각 의제는 한 줄로 간결하게 작성하세요
+- JSON 배열 형식으로만 반환하세요
 
 예시: ["의제1", "의제2", "의제3"]"""
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt
         )
         text = response.text.strip()
 
-        # API 속도 제한 방지
-        time.sleep(5)
+        await asyncio.sleep(1)
 
-        # JSON 파싱
+        # 1. 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
+        text = text.strip()
+        if text.startswith('```'):
+            # 첫 번째 줄과 마지막 줄 제거
+            lines = text.split('\n')
+            if lines[0].startswith('```'):
+                lines = lines[1:]  # 첫 줄 제거 (```json 또는 ```)
+            if lines and lines[-1].strip() == '```':
+                lines = lines[:-1]  # 마지막 줄 제거 (```)
+            text = '\n'.join(lines).strip()
+
+        # 2. JSON 파싱 시도
         if text.startswith('[') and text.endswith(']'):
-            issues = json.loads(text)
-            return issues[:5]  # 최대 5개
-        else:
-            # JSON이 아닌 경우 수동 파싱
-            lines = [line.strip('- ').strip() for line in text.split('\n') if line.strip()]
-            return lines[:5]
+            try:
+                issues = json.loads(text)
+                # 각 의제에서 따옴표, 쉼표 등 정제 (개수 제한 제거)
+                cleaned_issues = []
+                for issue in issues:
+                    # 양쪽 공백, 따옴표, 쉼표, 대괄호 제거
+                    cleaned = issue.strip().strip('"').strip("'").strip(',').strip()
+                    if cleaned:
+                        cleaned_issues.append(cleaned)
+                return cleaned_issues
+            except:
+                pass
+
+        # 3. JSON 파싱 실패 시 수동 파싱 (개수 제한 제거)
+        lines = []
+        for line in text.split('\n'):
+            if line.strip():
+                # 양쪽 공백, 하이픈, 따옴표, 쉼표, 대괄호 제거
+                cleaned = line.strip().strip('- ').strip('"').strip("'").strip(',').strip('[').strip(']').strip()
+                if cleaned:
+                    lines.append(cleaned)
+        return lines
     except Exception as e:
         print(f"  ⚠️ 핵심 의제 추출 실패: {e}")
-        time.sleep(6)
+        await asyncio.sleep(2)
         return None
 
 
-def generate_ai_summaries():
-    """커밋된 DB에서 combined_text를 읽어와 AI 요약 생성"""
+async def process_single_agenda(agenda_id, agenda_title, combined_text, total, idx):
+    """단일 안건 처리 (비동기)"""
+    global completed_count, failed_count
+
+    try:
+        if not combined_text or not combined_text.strip():
+            print(f"[{idx}/{total}] ⚠️ {agenda_title[:50]}... - 텍스트 없음")
+            with lock:
+                failed_count += 1
+            return None
+
+        # 1단계: 청킹
+        text_chunks = chunk_text(combined_text, chunk_size=2000)
+
+        # 2단계: 각 청크 요약 (병렬)
+        chunk_summary_tasks = [
+            summarize_text_chunk_async(chunk, agenda_title, i+1)
+            for i, chunk in enumerate(text_chunks)
+        ]
+        chunk_summaries = await asyncio.gather(*chunk_summary_tasks)
+        chunk_summaries = [s for s in chunk_summaries if s]
+
+        if not chunk_summaries:
+            print(f"[{idx}/{total}] ❌ {agenda_title[:50]}... - 청크 요약 실패")
+            with lock:
+                failed_count += 1
+            return None
+
+        # 3단계: 최종 요약 + 핵심 의제 (병렬)
+        ai_summary_task = summarize_agenda_async(chunk_summaries, agenda_title)
+        key_issues_task = extract_key_issues_async(chunk_summaries, agenda_title)
+
+        ai_summary, key_issues = await asyncio.gather(ai_summary_task, key_issues_task)
+
+        with lock:
+            completed_count += 1
+
+        print(f"[{idx}/{total}] ✅ {agenda_title[:50]}...")
+        if ai_summary:
+            print(f"   📝 {ai_summary[:80]}...")
+        if key_issues:
+            print(f"   🔍 {len(key_issues)}개 의제")
+
+        return (agenda_id, ai_summary, key_issues)
+
+    except Exception as e:
+        print(f"[{idx}/{total}] ❌ {agenda_title[:50]}... - 오류: {e}")
+        with lock:
+            failed_count += 1
+        return None
+
+
+async def generate_ai_summaries_async():
+    """비동기 병렬로 AI 요약 생성 (3개씩)"""
+    global completed_count, failed_count
 
     if not client:
         print("\n⚠️ Gemini API 없음 - AI 요약 건너뜀")
@@ -166,44 +255,31 @@ def generate_ai_summaries():
     agendas = cursor.fetchall()
 
     print("\n" + "=" * 80)
-    print(f"🤖 AI 요약 생성 시작 (총 {len(agendas)}개 안건)")
+    print(f"🤖 AI 요약 생성 (비동기 병렬 처리 - 10개씩)")
     print("=" * 80)
+    print(f"총 안건 수: {len(agendas)}개\n")
 
-    for idx, (agenda_id, agenda_title, combined_text) in enumerate(agendas, 1):
-        print(f"\n[{idx}/{len(agendas)}] {agenda_title[:50]}...")
+    # 초기화
+    completed_count = 0
+    failed_count = 0
 
-        if not combined_text or not combined_text.strip():
-            print(f"   ⚠️ 텍스트 없음 - 건너뜀")
-            continue
+    # 10개씩 병렬 처리
+    semaphore = asyncio.Semaphore(10)
 
-        # 1단계: combined_text를 청킹 (2000자씩)
-        text_chunks = chunk_text(combined_text, chunk_size=2000)
-        print(f"   📝 텍스트 길이: {len(combined_text)}자 → {len(text_chunks)}개 청크로 분할")
+    async def process_with_semaphore(agenda, idx):
+        async with semaphore:
+            return await process_single_agenda(
+                agenda[0], agenda[1], agenda[2], len(agendas), idx
+            )
 
-        # 2단계: 각 청크 요약
-        print(f"   🔄 각 청크 요약 중...")
-        chunk_summaries = []
+    tasks = [process_with_semaphore(agenda, idx) for idx, agenda in enumerate(agendas, 1)]
+    results = await asyncio.gather(*tasks)
 
-        for i, text_chunk in enumerate(text_chunks):
-            chunk_summary = summarize_text_chunk(text_chunk, agenda_title, i+1)
-            if chunk_summary:
-                chunk_summaries.append(chunk_summary)
-                print(f"      ✓ 청크 {i+1}/{len(text_chunks)} 요약 완료")
-
-        if not chunk_summaries:
-            print(f"   ⚠️ 청크 요약 실패 - 건너뜀")
-            continue
-
-        # 3단계: 최종 요약 (100-150자)
-        print(f"   🎯 최종 요약 생성 중...")
-        ai_summary = summarize_agenda(chunk_summaries, agenda_title)
-
-        # 4단계: 핵심 의제 추출
-        print(f"   🔍 핵심 의제 추출 중...")
-        key_issues = extract_key_issues(chunk_summaries, agenda_title)
-
-        # DB 업데이트
-        if ai_summary or key_issues:
+    # DB 업데이트
+    print("\n💾 DB 업데이트 중...")
+    for result in results:
+        if result:
+            agenda_id, ai_summary, key_issues = result
             cursor.execute('''
                 UPDATE agendas
                 SET ai_summary = ?, key_issues = ?
@@ -214,17 +290,20 @@ def generate_ai_summaries():
                 agenda_id
             ))
 
-            if ai_summary:
-                print(f"   ✅ 요약: {ai_summary[:80]}...")
-            if key_issues:
-                print(f"   ✅ 핵심 의제: {len(key_issues)}개 - {key_issues}")
-
     conn.commit()
     conn.close()
 
     print("\n" + "=" * 80)
-    print("✅ AI 요약 생성 완료!")
+    print("📊 최종 결과")
     print("=" * 80)
+    print(f"✅ 성공: {completed_count}개")
+    print(f"❌ 실패: {failed_count}개")
+    print("=" * 80)
+
+
+def generate_ai_summaries():
+    """동기 래퍼 함수"""
+    asyncio.run(generate_ai_summaries_async())
 
 
 if __name__ == "__main__":

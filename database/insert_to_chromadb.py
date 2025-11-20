@@ -7,6 +7,7 @@ JSON 메타데이터를 ChromaDB에 삽입하는 스크립트
 
 import json
 import chromadb
+from chromadb.config import Settings
 from pathlib import Path
 from typing import List, Dict
 import os
@@ -65,7 +66,10 @@ def insert_to_chromadb(
 
     # 2. ChromaDB 클라이언트 생성
     print(f"🗄️  ChromaDB 연결 중...")
-    client = chromadb.PersistentClient(path=persist_directory)
+    client = chromadb.PersistentClient(
+        path=persist_directory,
+        settings=Settings(anonymized_telemetry=False)
+    )
 
     # 2-1. OpenAI Embedding 함수 생성
     openai_ef = CustomOpenAIEmbeddingFunction(
@@ -176,7 +180,7 @@ def insert_to_chromadb(
 def insert_all_jsons(
     json_dir: str = "data/result_txt",
     collection_name: str = "seoul_council_meetings",
-    persist_directory: str = "./chroma_db"
+    persist_directory: str = "./data/chroma_db"
 ):
     """
     result_txt 폴더의 모든 JSON 파일을 ChromaDB에 삽입
