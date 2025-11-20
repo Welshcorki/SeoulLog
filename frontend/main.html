@@ -3,32 +3,30 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SeoulLog - 서울시의회 AI 정보 서비스</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
-<script>
-    tailwind = {
-      config: {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              "primary": "#0052A4",
-              "secondary": "#666666",
-              "accent": "#FFB600",
-              "background-light": "#F5F5F7",
-              "background-dark": "#101622",
-            },
-            fontFamily: {
-              "display": ["Public Sans", "Noto Sans KR", "sans-serif"]
-            },
-            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0052A4",
+            "secondary": "#666666",
+            "accent": "#FFB600",
+            "background-light": "#F5F5F7",
+            "background-dark": "#101622",
           },
+          fontFamily: {
+            "display": ["Public Sans", "Noto Sans KR", "sans-serif"]
+          },
+          borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
         },
-      }
+      },
     }
   </script>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <style>
     .material-symbols-outlined {
       font-variation-settings:
@@ -83,66 +81,9 @@
 </div>
 </div>
 <div class="flex-1 bg-background-light dark:bg-background-dark rounded-t-2xl p-4 pt-6 space-y-4">
-<h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 px-2">핫이슈 top5</h3>
-<div class="w-full @container">
-<div class="flex items-start justify-start rounded-lg shadow-[0_0_4px_rgba(0,0,0,0.1)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
-<div class="flex items-center justify-center mr-4 text-primary font-bold text-xl w-6">1</div>
-<div class="flex w-full min-w-0 grow flex-col items-stretch justify-center gap-1">
-<p class="text-[#111318] dark:text-white text-base font-bold leading-tight tracking-[-0.015em]">청년안심주택 공급 확대 조례안</p>
-<div class="flex flex-col gap-1">
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">제안자: 김서울 의원</p>
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">처리 상태: 심사 중</p>
-</div>
-</div>
-</div>
-</div>
-<div class="w-full @container">
-<div class="flex items-start justify-start rounded-lg shadow-[0_0_4px_rgba(0,0,0,0.1)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
-<div class="flex items-center justify-center mr-4 text-primary font-bold text-xl w-6">2</div>
-<div class="flex w-full min-w-0 grow flex-col items-stretch justify-center gap-1">
-<p class="text-[#111318] dark:text-white text-base font-bold leading-tight tracking-[-0.015em]">역세권 청년주택 관련 개정안</p>
-<div class="flex flex-col gap-1">
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">제안자: 박시민 의원</p>
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">처리 상태: 통과</p>
-</div>
-</div>
-</div>
-</div>
-<div class="w-full @container">
-<div class="flex items-start justify-start rounded-lg shadow-[0_0_4px_rgba(0,0,0,0.1)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
-<div class="flex items-center justify-center mr-4 text-primary font-bold text-xl w-6">3</div>
-<div class="flex w-full min-w-0 grow flex-col items-stretch justify-center gap-1">
-<p class="text-[#111318] dark:text-white text-base font-bold leading-tight tracking-[-0.015em]">서울시 청년주거 기본 조례 일부개정조례안</p>
-<div class="flex flex-col gap-1">
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">제안자: 이나라 의원</p>
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">처리 상태: 계류</p>
-</div>
-</div>
-</div>
-</div>
-<div class="w-full @container">
-<div class="flex items-start justify-start rounded-lg shadow-[0_0_4px_rgba(0,0,0,0.1)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
-<div class="flex items-center justify-center mr-4 text-primary font-bold text-xl w-6">4</div>
-<div class="flex w-full min-w-0 grow flex-col items-stretch justify-center gap-1">
-<p class="text-[#111318] dark:text-white text-base font-bold leading-tight tracking-[-0.015em]">공공자전거 '따릉이' 운영 효율화 방안</p>
-<div class="flex flex-col gap-1">
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">제안자: 최교통 의원</p>
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">처리 상태: 심사 중</p>
-</div>
-</div>
-</div>
-</div>
-<div class="w-full @container">
-<div class="flex items-start justify-start rounded-lg shadow-[0_0_4px_rgba(0,0,0,0.1)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
-<div class="flex items-center justify-center mr-4 text-primary font-bold text-xl w-6">5</div>
-<div class="flex w-full min-w-0 grow flex-col items-stretch justify-center gap-1">
-<p class="text-[#111318] dark:text-white text-base font-bold leading-tight tracking-[-0.015em]">반려동물 친화도시 조성을 위한 조례안</p>
-<div class="flex flex-col gap-1">
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">제안자: 김애견 의원</p>
-<p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">처리 상태: 통과</p>
-</div>
-</div>
-</div>
+<h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 px-2">🔥 주목받는 안건 Top 5</h3>
+<div id="top-agendas-container" class="space-y-3">
+<!-- Top 안건이 동적으로 로드됩니다 -->
 </div>
 </div>
 </main>
@@ -171,28 +112,54 @@
     });
   });
 
-  // 핫이슈 카드 클릭 이벤트
-  const issueCards = document.querySelectorAll('.w-full.\\@container');
-  issueCards.forEach(card => {
-    card.addEventListener('click', () => {
-      const title = card.querySelector('.text-base.font-bold').textContent.trim();
-      searchInput.value = title;
-      window.location.href = `/search?query=${encodeURIComponent(title)}`;
-    });
-  });
-
-  // 페이지 로드 시 핫이슈 데이터 가져오기
-  async function loadHotIssues() {
+  // 페이지 로드 시 Top 5 안건 데이터 가져오기
+  async function loadTopAgendas() {
     try {
-      const response = await fetch('/api/hot-issues');
-      const hotIssues = await response.json();
+      const response = await fetch('/api/top-agendas');
+      const topAgendas = await response.json();
 
-      // 핫이슈 UI 업데이트 (선택사항 - 현재는 하드코딩된 데이터 사용)
-      console.log('핫이슈 로드 완료:', hotIssues);
+      const container = document.getElementById('top-agendas-container');
+      container.innerHTML = ''; // 기존 내용 제거
+
+      topAgendas.forEach((agenda, index) => {
+        const card = document.createElement('div');
+        card.className = 'w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition';
+        card.dataset.agendaId = agenda.agenda_id; // agenda_id 저장
+
+        card.innerHTML = `
+          <div class="flex items-start justify-start rounded-lg shadow-[0_0_4px_rgba(0,0,0,0.1)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
+            <div class="flex items-center justify-center mr-4 text-primary font-bold text-xl w-6">${index + 1}</div>
+            <div class="flex w-full min-w-0 grow flex-col items-stretch justify-center gap-1">
+              <p class="text-[#111318] dark:text-white text-base font-bold leading-tight tracking-[-0.015em]">${agenda.title}</p>
+              <div class="flex flex-col gap-1">
+                <p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">📅 ${agenda.meeting_date} | 📍 ${agenda.meeting_title}</p>
+                <p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">💬 ${agenda.chunk_count}개 발언 | 👤 ${agenda.main_speaker}</p>
+                <p class="text-secondary dark:text-gray-400 text-sm font-normal leading-normal">📊 ${agenda.status}</p>
+                ${agenda.ai_summary && agenda.ai_summary !== '요약 없음' ? `<p class="text-gray-600 dark:text-gray-400 text-xs mt-1 line-clamp-2">${agenda.ai_summary}</p>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+
+        // 클릭 이벤트: details 페이지로 이동
+        card.addEventListener('click', () => {
+          window.location.href = `/details?agenda_id=${encodeURIComponent(agenda.agenda_id)}`;
+        });
+
+        container.appendChild(card);
+      });
+
+      console.log('Top 5 안건 로드 완료:', topAgendas);
     } catch (error) {
-      console.error('핫이슈 로드 실패:', error);
+      console.error('Top 5 안건 로드 실패:', error);
+      // 에러 시 메시지 표시
+      const container = document.getElementById('top-agendas-container');
+      container.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-4">안건을 불러오는 중 오류가 발생했습니다.</p>';
     }
   }
+
+  // 페이지 로드 시 Top 5 안건 로드
+  loadTopAgendas();
 
   // loadHotIssues();
 </script>
