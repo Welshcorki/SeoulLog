@@ -117,7 +117,8 @@ class AgendaRepository:
     def find_top_agendas(
         self,
         limit: int = 5,
-        exclude_titles_like: List[str] = None
+        exclude_titles_like: List[str] = None,
+        exclude_agenda_types: List[str] = None
     ) -> List[Dict]:
         """
         Top 안건 조회 (최신 + 활발한 논의)
@@ -125,6 +126,7 @@ class AgendaRepository:
         Args:
             limit: 조회 개수
             exclude_titles_like: 제외할 제목 패턴 리스트 (예: ['%개의%', '%산회%'])
+            exclude_agenda_types: 제외할 안건 타입 리스트 (예: ['procedural', 'discussion', 'other'])
 
         Returns:
             Top 안건 리스트
@@ -134,11 +136,19 @@ class AgendaRepository:
 
             # WHERE 조건 구성
             where_conditions = []
+            params = []
+
             if exclude_titles_like:
                 for pattern in exclude_titles_like:
                     where_conditions.append(f"agenda_title NOT LIKE '{pattern}'")
 
             where_conditions.append("chunk_count > 10")
+
+            # agenda_type 필터링
+            if exclude_agenda_types:
+                type_placeholders = ','.join('?' * len(exclude_agenda_types))
+                where_conditions.append(f'agenda_type NOT IN ({type_placeholders})')
+                params.extend(exclude_agenda_types)
 
             where_clause = ' AND '.join(where_conditions)
 
@@ -151,7 +161,8 @@ class AgendaRepository:
                 LIMIT ?
             '''
 
-            cursor.execute(query, (limit,))
+            params.append(limit)
+            cursor.execute(query, params)
             rows = cursor.fetchall()
 
             return [dict(row) for row in rows]

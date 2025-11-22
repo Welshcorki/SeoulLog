@@ -20,6 +20,9 @@ class AgendaService:
     Repository 계층을 호출하여 안건 관련 비즈니스 로직을 수행합니다.
     """
 
+    # agenda_type 필터링: 실제 안건만 표시 (절차/토론/기타 제외)
+    EXCLUDED_AGENDA_TYPES = ["procedural", "discussion", "other"]
+
     def __init__(self, agenda_repo: AgendaRepository):
         """
         초기화
@@ -154,7 +157,8 @@ class AgendaService:
         """
         agendas = self.agenda_repo.find_top_agendas(
             limit=limit,
-            exclude_titles_like=['%개의%', '%산회%']
+            exclude_titles_like=['%개의%', '%산회%'],
+            exclude_agenda_types=self.EXCLUDED_AGENDA_TYPES
         )
 
         # Repository의 agenda_title → Pydantic 모델의 title 필드로 매핑
