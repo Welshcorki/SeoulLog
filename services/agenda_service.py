@@ -157,7 +157,20 @@ class AgendaService:
             exclude_titles_like=['%개의%', '%산회%']
         )
 
-        return agendas
+        # Repository의 agenda_title → Pydantic 모델의 title 필드로 매핑
+        return [
+            {
+                "agenda_id": agenda['agenda_id'],
+                "title": agenda['agenda_title'],  # 필드명 매핑
+                "meeting_title": agenda['meeting_title'],
+                "meeting_date": agenda['meeting_date'],
+                "ai_summary": agenda.get('ai_summary'),
+                "chunk_count": agenda['chunk_count'],
+                "main_speaker": agenda['main_speaker'],
+                "status": agenda['status']
+            }
+            for agenda in agendas
+        ]
 
     def _parse_json_field(self, json_str: Optional[str]) -> Optional[any]:
         """
