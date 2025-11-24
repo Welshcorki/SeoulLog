@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>회의록 AI 챗봇</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0052A4",
+              "secondary": "#666666",
+              "accent": "#FFB600",
+              "background-light": "#F5F5F7",
+              "background-dark": "#101622",
+            },
+            fontFamily: {
+              "display": ["Public Sans", "Noto Sans KR", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display">
+<div class="relative flex h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root overflow-hidden">
+<!-- Top App Bar -->
+<div class="flex shrink-0 items-center bg-white dark:bg-neutral-900 p-4 justify-between sticky top-0 z-10 border-b border-gray-200 dark:border-neutral-800">
+  <button id="go-back" class="text-neutral-gray-dark dark:text-gray-200 flex size-12 shrink-0 items-center justify-start -ml-2">
+    <span class="material-symbols-outlined text-2xl">arrow_back</span>
+  </button>
+  <h2 class="text-neutral-gray-dark dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">회의록 AI 챗봇</h2>
+  <div class="size-12 shrink-0"></div>
+</div>
+<!-- Chat Window -->
+<div class="flex-1 overflow-y-auto pb-4">
+<!-- Welcome Message -->
+<div class="flex items-end gap-3 p-4">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 h-10 shrink-0" data-alt="AI assistant avatar with abstract geometric shapes" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAuULaQwPjv0aynGEP_fyqLcnLwhhO7i4Ocs6GhE-ihDD0S12Vj3RSV0cq2nYpKjSINRk3tWfa2iReGRFr_IZk8-5nkUXuNq96XUK1PxEK8tO9ysvgoETFQkj1mbgoX6Q6cGu2oImVZnQjIHZtU_CYx_ihqep51zX8yQR5Pzzo-peZu0Q9YeGSI546q-voBDhDFw6gMLxH3ufVzwQlV9R7MzE_7Vsluy_Jq2rISAfsDPiXRdtZFQUFESHm1RLIhMIWVHc6qy7Rj4VQ');"></div>
+<div class="flex flex-1 flex-col gap-2 items-start">
+<p class="text-neutral-gray-light dark:text-gray-400 text-[13px] font-normal leading-normal max-w-[360px]">AI 챗봇</p>
+<p class="text-base font-normal leading-normal flex max-w-[360px] rounded-lg rounded-bl-none px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-gray-dark dark:text-white shadow-sm">
+                        안녕하세요! 서울시의회 회의록 AI 챗봇입니다. 궁금한 점을 질문해주세요.
+                    </p>
+</div>
+</div>
+<!-- Suggestion Chips -->
+<div class="flex gap-2 p-3 pl-16 flex-wrap">
+<div class="flex h-8 shrink-0 cursor-pointer items-center justify-center gap-x-2 rounded-full border border-gray-200 dark:border-neutral-700 bg-background-light dark:bg-background-dark px-3 hover:bg-gray-100 dark:hover:bg-neutral-700">
+<p class="text-neutral-gray-dark dark:text-gray-300 text-sm font-medium leading-normal">최근 논의된 청년 정책은?</p>
+</div>
+<div class="flex h-8 shrink-0 cursor-pointer items-center justify-center gap-x-2 rounded-full border border-gray-200 dark:border-neutral-700 bg-background-light dark:bg-background-dark px-3 hover:bg-gray-100 dark:hover:bg-neutral-700">
+<p class="text-neutral-gray-dark dark:text-gray-300 text-sm font-medium leading-normal">지난 회의 주요 안건 요약해줘</p>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex items-end gap-3 p-4 justify-end">
+<div class="flex flex-1 flex-col gap-1 items-end">
+<p class="text-base font-normal leading-normal flex max-w-[360px] rounded-lg rounded-br-none px-4 py-3 bg-primary text-white">서울시 청년 주거 지원 정책에 대해 알려주세요.</p>
+</div>
+</div>
+<!-- AI Response with Loading Indicator -->
+<div class="flex items-end gap-3 p-4">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 h-10 shrink-0" data-alt="AI assistant avatar with abstract geometric shapes" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDO-lRx8Be4wBdy3biN67a_PSuKDIUyiUsCHcSuyNJHGZuhEX61IewzjE5wgoJzmj8UqyzCfWWj67t2M7HgQkebz3ZQTBj-k1wue5reEIUju7dPv9LU3NxyXOc9UtCsT8wp-ArwWjS6faoMSfcvhrOwepn-_HKnt0Z4mqh-i81FI_daZo_ptGcqfyCGrXEydD5gsPuPOkihZuvNwbaA3L2NmuJI0aQanhtL6H81VqbUBoWku6qPnEQX9k636757Dlv0VtXB5Bupbgc');"></div>
+<div class="flex flex-1 flex-col gap-2 items-start">
+<p class="text-neutral-gray-light dark:text-gray-400 text-[13px] font-normal leading-normal max-w-[360px]">AI 챗봇</p>
+<div class="flex max-w-[360px] items-center gap-2 rounded-lg rounded-bl-none px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-gray-dark dark:text-white shadow-sm">
+<div class="flex gap-1 items-center">
+<span class="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></span>
+<span class="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></span>
+<span class="size-1.5 rounded-full bg-primary animate-bounce"></span>
+</div>
+<p class="text-base font-normal leading-normal text-neutral-gray-light dark:text-gray-400">답변 생성 중...</p>
+</div>
+</div>
+</div>
+<!-- AI Response with Source -->
+<div class="flex items-end gap-3 p-4">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 h-10 shrink-0 self-start" data-alt="AI assistant avatar with abstract geometric shapes" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBT6CuPrCVLeMbM5AyaQQFeX5bCvsKocjj653Y21uZdMqjZElHW2ZXCYoRA1C7ewfUDa46P3k1J8uH3cpfAeryv-_zBHs0Zc0jHaSIWQZPC2MDk-jdiV1uXPDwRxZNK8KYjjgWq-62kiGPxvBx5LPoUj_ArGtnL0VjTif_63RL0ebQ8l0oXDDq0HI8U_pjsOAdPi1UIMaWBKd7CQr1qK9cVRmcRAlYLLOuybT2Lx6peDgiLgh-qW8Svr53S6et2ULSXrw45W1vpNWw');"></div>
+<div class="flex flex-1 flex-col gap-2 items-start">
+<p class="text-neutral-gray-light dark:text-gray-400 text-[13px] font-normal leading-normal max-w-[360px]">AI 챗봇</p>
+<div class="flex flex-col gap-3 max-w-[360px] rounded-lg rounded-bl-none p-4 bg-white dark:bg-neutral-800 text-neutral-gray-dark dark:text-white shadow-sm">
+<p class="text-base font-normal leading-relaxed">
+                            서울시는 청년들의 주거 안정을 위해 역세권 청년주택, 청년 임차보증금 이자 지원 등 다양한 정책을 시행하고 있습니다. 자세한 내용은 아래 관련 회의록을 참고해주세요.
+                        </p>
+<div class="w-full border-t border-slate-200 dark:border-slate-700"></div>
+<p class="text-sm font-bold text-neutral-gray-dark dark:text-gray-200">관련 회의록 출처</p>
+<a class="flex w-full items-center gap-3 rounded-lg bg-gray-100 dark:bg-neutral-900/50 p-3 hover:bg-gray-200 dark:hover:bg-neutral-700/50 transition-colors" href="#">
+<div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700">
+<span class="material-symbols-outlined text-neutral-gray-light dark:text-gray-400">description</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-sm font-medium leading-normal text-neutral-gray-dark dark:text-white truncate">제320회 임시회 본회의 제1차</p>
+<p class="text-xs text-neutral-gray-light dark:text-gray-400">2023-08-28 · 청년 주거 안정 대책</p>
+</div>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="sticky bottom-0 mt-auto flex-shrink-0 border-t border-gray-200 dark:border-neutral-800 bg-background-light dark:bg-background-dark p-4">
+<div class="relative flex items-center">
+<input id="message-input" class="w-full rounded-full border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 py-3 pl-5 pr-14 text-base text-neutral-gray-dark dark:text-white placeholder-neutral-gray-light dark:placeholder-gray-400 focus:border-primary focus:ring-primary" placeholder="궁금한 내용을 입력하세요..." type="text"/>
+<button id="send-button" class="absolute right-2 flex size-9 items-center justify-center rounded-full bg-primary text-white transition-colors hover:bg-primary/90">
+<span class="material-symbols-outlined text-xl">arrow_upward</span>
+</button>
+</div>
+</div>
+</div>
+
+<script>
+    // --- DOM Elements ---
+    const chatWindow = document.querySelector('.flex-1.overflow-y-auto');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const backButton = document.getElementById('go-back');
+
+    // --- Chat State ---
+    let sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+    let chatHistory = []; // Array of [user_message, ai_response]
+
+    // --- Templates ---
+    const welcomeMessage = chatWindow.innerHTML; // Save initial welcome message
+
+    const createMessageHTML = (sender, message) => {
+        if (sender === 'user') {
+            return `
+                <div class="flex items-end gap-3 p-4 justify-end">
+                    <div class="flex flex-1 flex-col gap-1 items-end">
+                        <p class="text-base font-normal leading-normal flex max-w-[360px] rounded-lg rounded-br-none px-4 py-3 bg-primary text-white">${message}</p>
+                    </div>
+                </div>`;
+        } else { // sender === 'ai'
+            // Basic markdown to HTML conversion for newlines
+            const formattedMessage = message.replace(/\n/g, '<br>');
+            return `
+                <div class="flex items-end gap-3 p-4">
+                    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 h-10 shrink-0 self-start" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBT6CuPrCVLeMbM5AyaQQFeX5bCvsKocjj653Y21uZdMqjZElHW2ZXCYoRA1C7ewfUDa46P3k1J8uH3cpfAeryv-_zBHs0Zc0jHaSIWQZPC2MDk-jdiV1uXPDwRxZNK8KYjjgWq-62kiGPxvBx5LPoUj_ArGtnL0VjTif_63RL0ebQ8l0oXDDq0HI8U_pjsOAdPi1UIMaWBKd7CQr1qK9cVRmcRAlYLLOuybT2Lx6peDgiLgh-qW8Svr53S6et2ULSXrw45W1vpNWw');"></div>
+                    <div class="flex flex-1 flex-col gap-2 items-start">
+                        <p class="text-neutral-gray-light dark:text-gray-400 text-[13px] font-normal leading-normal max-w-[360px]">AI 챗봇</p>
+                        <div class="flex flex-col gap-3 max-w-[360px] rounded-lg rounded-bl-none p-4 bg-white dark:bg-neutral-800 text-neutral-gray-dark dark:text-white shadow-sm">
+                            <p class="text-base font-normal leading-relaxed">${formattedMessage}</p>
+                        </div>
+                    </div>
+                </div>`;
+        }
+    };
+
+    const loadingIndicatorHTML = `
+        <div id="loading-indicator" class="flex items-end gap-3 p-4">
+            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 h-10 shrink-0" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDO-lRx8Be4wBdy3biN67a_PSuKDIUyiUsCHcSuyNJHGZuhEX61IewzjE5wgoJzmj8UqyzCfWWj67t2M7HgQkebz3ZQTBj-k1wue5reEIUju7dPv9LU3NxyXOc9UtCsT8wp-ArwWjS6faoMSfcvhrOwepn-_HKnt0Z4mqh-i81FI_daZo_ptGcqfyCGrXEydD5gsPuPOkihZuvNwbaA3L2NmuJI0aQanhtL6H81VqbUBoWku6qPnEQX9k636757Dlv0VtXB5Bupbgc');"></div>
+            <div class="flex flex-1 flex-col gap-2 items-start">
+                <p class="text-neutral-gray-light dark:text-gray-400 text-[13px] font-normal leading-normal max-w-[360px]">AI 챗봇</p>
+                <div class="flex max-w-[360px] items-center gap-2 rounded-lg rounded-bl-none px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-gray-dark dark:text-white shadow-sm">
+                    <div class="flex gap-1 items-center">
+                        <span class="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></span>
+                        <span class="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></span>
+                        <span class="size-1.5 rounded-full bg-primary animate-bounce"></span>
+                    </div>
+                    <p class="text-base font-normal leading-normal text-neutral-gray-light dark:text-gray-400">답변 생성 중...</p>
+                </div>
+            </div>
+        </div>`;
+
+    // --- Functions ---
+    const addMessage = (sender, message) => {
+        const html = createMessageHTML(sender, message);
+        chatWindow.insertAdjacentHTML('beforeend', html);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    };
+
+    const showLoading = () => {
+        chatWindow.insertAdjacentHTML('beforeend', loadingIndicatorHTML);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    };
+
+    const hideLoading = () => {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
+    };
+
+    const sendMessage = async () => {
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        // 1. Display user message
+        addMessage('user', message);
+        messageInput.value = '';
+        
+        // 2. Show loading indicator
+        showLoading();
+
+        try {
+            // 3. Send to backend
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: message,
+                    session_id: sessionId,
+                    history: chatHistory
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const aiResponse = data.response;
+
+            // 4. Hide loading and display AI response
+            hideLoading();
+            addMessage('ai', aiResponse);
+
+            // 5. Update history
+            chatHistory.push([message, aiResponse]);
+
+        } catch (error) {
+            console.error('Error sending message:', error);
+            hideLoading();
+            addMessage('ai', '죄송합니다. 메시지를 처리하는 중 오류가 발생했습니다.');
+        }
+    };
+    
+    const resetChat = () => {
+        chatWindow.innerHTML = welcomeMessage;
+        chatHistory = [];
+        sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+        console.log('Chat reset. New session:', sessionId);
+    };
+
+    // --- Event Listeners ---
+    sendButton.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+    if (backButton) {
+        backButton.addEventListener('click', () => {
+            window.history.back();
+        });
+    }
+
+    // --- Initial Cleanup ---
+    // Remove static messages from the initial HTML
+    const staticMessages = chatWindow.querySelectorAll('.flex.items-end.gap-3.p-4');
+    staticMessages.forEach((msg, index) => {
+        // Keep the first welcome message, remove the rest
+        if (index > 0) {
+            msg.remove();
+        }
+    });
+    
+    console.log('Chat UI initialized. Session ID:', sessionId);
+
+</script>
+
+</body></html>
