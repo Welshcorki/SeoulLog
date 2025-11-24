@@ -48,7 +48,7 @@ seoulloc/
 │   ├── search.html                # 검색 결과 페이지
 │   └── details.html               # 안건 상세 페이지
 │
-├── backend_server.py              # FastAPI 메인 서버
+├── app.py              # FastAPI 메인 서버
 │
 ├── search/                        # 검색 파이프라인
 │   ├── query_analyzer.py          # LLM 기반 쿼리 분석
@@ -135,7 +135,7 @@ python database/insert_to_chromadb.py
 ### 4. 서버 실행
 
 ```bash
-python backend_server.py
+python app.py
 ```
 
 → http://localhost:8000 에서 확인
@@ -321,7 +321,7 @@ GET /api/top-agendas
 
 ### Backend
 
-#### `backend_server.py`
+#### `app.py`
 - FastAPI 메인 서버
 - `/api/search`: 안건 검색 (ChromaDB → 그룹핑 → SQLite)
 - `/api/agenda/{agenda_id}`: 안건 상세 조회
@@ -426,7 +426,7 @@ agendas.db (ai_summary, key_issues 추가)
     ↓
 chroma_db/ (벡터 검색용)
     ↓
-[FastAPI 서버] backend_server.py
+[FastAPI 서버] app.py
     ↓
 HTML 프론트엔드 → 사용자
 ```

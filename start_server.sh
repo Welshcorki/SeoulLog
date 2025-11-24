@@ -19,4 +19,4 @@ echo "서버를 종료하려면 Ctrl+C를 누르세요."
 echo "========================================="
 
 # 서버 실행
-python backend_server.py
+python app.py
