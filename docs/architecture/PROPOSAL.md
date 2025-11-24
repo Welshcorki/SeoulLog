@@ -588,7 +588,7 @@ TXT 회의록
 
 ```
 seoulloc/
-├── backend_server.py          # FastAPI 메인 서버
+├── app.py          # FastAPI 메인 서버
 ├── query_analyzer.py          # 쿼리 분석 (GPT-4o-mini)
 ├── metadata_validator.py      # 메타데이터 검증
 ├── search_executor.py         # 검색 실행

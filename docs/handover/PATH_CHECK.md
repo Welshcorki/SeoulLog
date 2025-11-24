@@ -81,12 +81,12 @@ from utils.custom_openai_embedding import CustomOpenAIEmbeddingFunction
 
 ---
 
-### 4. 백엔드 (backend_server.py)
+### 4. 백엔드 (app.py)
 
 **실행 방법:**
 ```bash
 cd /mnt/c/Users/SBA/Project/seoulloc  # 프로젝트 루트
-python backend_server.py
+python app.py
 ```
 
 **경로 참조:**
@@ -140,7 +140,7 @@ from utils.custom_openai_embedding import CustomOpenAIEmbeddingFunction
 │   ├── generate_ai_summaries.py      # 루트에서 실행
 │   └── generate_attachment_summaries.py # 루트에서 실행
 │
-└── backend_server.py                 # 루트에서 실행
+└── app.py                 # 루트에서 실행
 ```
 
 ---

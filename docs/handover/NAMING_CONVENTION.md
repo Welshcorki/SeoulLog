@@ -112,7 +112,7 @@ app.py           # 메인 애플리케이션 (간단한 경우)
 ```
 
 **예시:**
-- `backend_server.py` ✅
+- `app.py` ✅
 
 ### 안티패턴 ❌
 
@@ -145,7 +145,7 @@ searchExecutor.py
 
 ```
 seoulloc/
-├── backend_server.py           # 단일 서버 파일
+├── app.py           # 단일 서버 파일
 │
 ├── crawling/                   # 크롤링 모듈 (복수형)
 ├── data_processing/            # 데이터 처리 모듈 (복수형)

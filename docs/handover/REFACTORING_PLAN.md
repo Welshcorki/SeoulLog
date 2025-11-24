@@ -22,11 +22,11 @@
 
 ## 🔴 현재 구조의 문제점
 
-### 1. backend_server.py (759줄)
+### 1. app.py (759줄)
 
 #### 문제점:
 ```python
-# backend_server.py 현재 구조
+# app.py 현재 구조
 
 @app.post("/api/search")
 async def search(request: SearchRequest):
@@ -82,7 +82,7 @@ async def search(request: SearchRequest):
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Presentation Layer (프레젠테이션 계층)                   │
-│  - backend_server.py (FastAPI 라우터)                   │
+│  - app.py (FastAPI 라우터)                   │
 │  - 요청/응답 처리                                         │
 │  - Service 계층 호출만                                    │
 └─────────────────────────────────────────────────────────┘
@@ -131,7 +131,7 @@ async def search(request: SearchRequest):
 
 ```
 seoulloc/
-├── backend_server.py                   # 📄 라우터만 (250-300줄)
+├── app.py                   # 📄 라우터만 (250-300줄)
 │
 ├── services/                           # 📁 비즈니스 로직
 │   ├── __init__.py
@@ -172,7 +172,7 @@ seoulloc/
 
 ## 🏛️ 계층별 역할
 
-### 1. Presentation Layer (backend_server.py)
+### 1. Presentation Layer (app.py)
 
 **역할:**
 - FastAPI 라우트 정의
@@ -188,7 +188,7 @@ seoulloc/
 
 **예시:**
 ```python
-# backend_server.py
+# app.py
 
 @app.post("/api/search", response_model=SearchResponse)
 async def search(request: SearchRequest):
@@ -385,7 +385,7 @@ class ChromaRepository:
 User Request
     ↓
 ┌───────────────────────────────────────────────────────┐
-│ backend_server.py                                     │
+│ app.py                                     │
 │ POST /api/search                                      │
 │                                                       │
 │ - 요청 데이터 검증 (Pydantic)                          │
@@ -435,7 +435,7 @@ User
 User Request
     ↓
 ┌───────────────────────────────────────────────────────┐
-│ backend_server.py                                     │
+│ app.py                                     │
 │ GET /api/agenda/{agenda_id}                           │
 │                                                       │
 │ - agenda_service.get_agenda_detail(agenda_id) 호출     │
@@ -1173,7 +1173,7 @@ class AgendaService:
             return None
 ```
 
-### 5. backend_server.py (리팩토링 후)
+### 5. app.py (리팩토링 후)
 
 ```python
 """
@@ -1386,7 +1386,7 @@ if __name__ == "__main__":
    - 안건 CRUD 로직 이동
    - 메소드: `get_agenda_detail`, `get_formatted_detail`, `get_top_agendas`
 
-### Phase 3: backend_server.py 리팩토링
+### Phase 3: app.py 리팩토링
 
 1. **Repository 및 Service 초기화**
    - Repository 인스턴스 생성
@@ -1407,7 +1407,7 @@ if __name__ == "__main__":
 
 1. **서버 실행**
    ```bash
-   python backend_server.py
+   python app.py
    ```
 
 2. **API 테스트**
@@ -1428,7 +1428,7 @@ if __name__ == "__main__":
 
    - Repository 계층 추가 (AgendaRepository, ChromaRepository)
    - Service 계층 추가 (AgendaService, AgendaSearchService)
-   - backend_server.py 간소화 (759줄 → 300줄)
+   - app.py 간소화 (759줄 → 300줄)
    - agenda_type 필터링 추가 (procedural, discussion, other 제외)
    - 단일 책임 원칙(SRP) 적용
    - 테스트 용이성 개선
@@ -1442,7 +1442,7 @@ if __name__ == "__main__":
 
 | 파일 | 현재 | 리팩토링 후 | 변화 |
 |------|------|-------------|------|
-| backend_server.py | 759줄 | ~300줄 | **-60%** |
+| app.py | 759줄 | ~300줄 | **-60%** |
 | POST /api/search | 237줄 | ~20줄 | **-92%** |
 | **새 파일** | | | |
 | repositories/agenda_repository.py | - | ~200줄 | 신규 |
@@ -1520,7 +1520,7 @@ curl http://localhost:8000/api/top-agendas
 ## 🎯 성공 기준
 
 ### 1. 코드 품질
-- [ ] backend_server.py 300줄 이하
+- [ ] app.py 300줄 이하
 - [ ] 각 계층이 단일 책임 원칙 준수
 - [ ] 의존성 주입 패턴 적용
 - [ ] Private 메소드 적절히 사용 (`_` 접두사)
