@@ -35,6 +35,16 @@ class CostTracker:
         "gpt-4-turbo": {
             "input": 10.00 / 1_000_000,
             "output": 30.00 / 1_000_000
+        },
+
+        # Gemini 모델 (2025년 기준, USD)
+        "gemini-2.5-pro": {
+            "input": 1.25 / 1_000_000,    # $1.25 per 1M tokens
+            "output": 5.00 / 1_000_000    # $5.00 per 1M tokens
+        },
+        "gemini-2.5-flash": {
+            "input": 0.075 / 1_000_000,   # $0.075 per 1M tokens
+            "output": 0.30 / 1_000_000    # $0.30 per 1M tokens
         }
     }
 
@@ -157,6 +167,72 @@ class CostTracker:
             "cost_krw": f"₩{total_cost * 1300:.4f}"
         }
 
+    def add_gemini_cost(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        model: str = "gemini-2.5-flash"
+    ) -> Dict[str, float]:
+        """
+        Gemini API 비용 추가
+
+        Args:
+            input_tokens: 입력 토큰 수
+            output_tokens: 출력 토큰 수
+            model: Gemini 모델명
+
+        Returns:
+            비용 정보 딕셔너리
+        """
+        if model not in self.PRICING:
+            print(f"⚠️ 알 수 없는 모델: {model}")
+            return {"input_tokens": input_tokens, "output_tokens": output_tokens, "cost": 0.0}
+
+        input_cost = input_tokens * self.PRICING[model]["input"]
+        output_cost = output_tokens * self.PRICING[model]["output"]
+        total_cost = input_cost + output_cost
+
+        self.total_cost += total_cost
+
+        if "gemini" not in self.costs_breakdown:
+            self.costs_breakdown["gemini"] = {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cost": 0.0,
+                "calls": 0,
+                "models": {}
+            }
+
+        self.costs_breakdown["gemini"]["input_tokens"] += input_tokens
+        self.costs_breakdown["gemini"]["output_tokens"] += output_tokens
+        self.costs_breakdown["gemini"]["cost"] += total_cost
+        self.costs_breakdown["gemini"]["calls"] += 1
+
+        # 모델별 세부 통계
+        if model not in self.costs_breakdown["gemini"]["models"]:
+            self.costs_breakdown["gemini"]["models"][model] = {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cost": 0.0,
+                "calls": 0
+            }
+
+        self.costs_breakdown["gemini"]["models"][model]["input_tokens"] += input_tokens
+        self.costs_breakdown["gemini"]["models"][model]["output_tokens"] += output_tokens
+        self.costs_breakdown["gemini"]["models"][model]["cost"] += total_cost
+        self.costs_breakdown["gemini"]["models"][model]["calls"] += 1
+
+        return {
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "input_cost": input_cost,
+            "output_cost": output_cost,
+            "total_cost": total_cost,
+            "cost_usd": f"${total_cost:.6f}",
+            "cost_krw": f"₩{total_cost * 1300:.4f}"
+        }
+
     def get_summary(self) -> Dict:
         """
         전체 비용 요약
@@ -192,6 +268,23 @@ class CostTracker:
             print(f"   입력 토큰: {chat['input_tokens']:,}개")
             print(f"   출력 토큰: {chat['output_tokens']:,}개")
             print(f"   비용: ${chat['cost']:.6f} (₩{chat['cost']*1300:.4f})")
+
+        if "gemini" in self.costs_breakdown:
+            gemini = self.costs_breakdown["gemini"]
+            print(f"\n🤖 Gemini API:")
+            print(f"   호출 횟수: {gemini['calls']}회")
+            print(f"   입력 토큰: {gemini['input_tokens']:,}개")
+            print(f"   출력 토큰: {gemini['output_tokens']:,}개")
+            print(f"   비용: ${gemini['cost']:.6f} (₩{gemini['cost']*1300:.4f})")
+
+            # 모델별 세부 통계
+            if "models" in gemini and gemini["models"]:
+                print(f"\n   모델별 상세:")
+                for model_name, stats in gemini["models"].items():
+                    print(f"   • {model_name}:")
+                    print(f"     - 호출: {stats['calls']}회")
+                    print(f"     - 토큰: {stats['input_tokens']:,} in + {stats['output_tokens']:,} out")
+                    print(f"     - 비용: ${stats['cost']:.6f} (₩{stats['cost']*1300:.4f})")
 
         print(f"\n💵 총 비용: ${self.total_cost:.6f} (₩{self.total_cost*1300:.4f})")
         print("="*60 + "\n")
