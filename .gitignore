@@ -51,6 +51,7 @@ frontend/.env.test.local
 frontend/.env.production.local
 
 # Logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -84,6 +85,10 @@ Desktop.ini
 
 # 파일 (대용량 텍스트 및 데이터)
 result/
+result_txt/
+data_old/
+data/result_txt_gemini/
+data/result_txt_gemini_flash/
 *.jpg
 *.jpeg
 *.json
@@ -98,10 +103,13 @@ result/
 *.temp
 temp/
 tmp/
+temp_data/
 
 # 테스트
 test_*.py
 *_test.py
+test_attachments/
+test_results/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -126,8 +134,13 @@ credentials.json
 SESSION_332_*.txt
 selenium_debug.png
 *.md.backup
+GEMINI_FLASH_ISSUE_REPORT_*.md
+HANDOVER.md
+HANDOVER2.md
+HANDOVER3.md
 
 # 스크린샷 및 임시 데이터
 capture.png
 error.png
 data.zip
+*.zip
