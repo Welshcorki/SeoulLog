@@ -20,11 +20,17 @@ import tempfile
 import os
 import asyncio
 import threading
+import sys
 from pathlib import Path
 from typing import List, Dict, Optional
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+
+# 프로젝트 루트를 Python path에 추가
+sys.path.append(str(Path(__file__).parent.parent))
+
+from utils.cost_tracker import CostTracker
 
 load_dotenv()
 
@@ -72,13 +78,14 @@ def download_file(url: str, save_path: str) -> bool:
         return False
 
 
-async def summarize_pdf_with_gemini(file_path: str, title: str) -> str:
+async def summarize_pdf_with_gemini(file_path: str, title: str, cost_tracker: CostTracker = None) -> str:
     """
     Gemini File API로 PDF 요약 생성 (범용 프롬프트, 비동기)
 
     Args:
         file_path: PDF 파일 경로
         title: 문서 제목
+        cost_tracker: 비용 추적 객체
 
     Returns:
         요약 텍스트 (2-4줄)
@@ -144,6 +151,16 @@ async def summarize_pdf_with_gemini(file_path: str, title: str) -> str:
 
         summary = response.text.strip()
 
+        # 비용 추적
+        if cost_tracker and hasattr(response, 'usage_metadata'):
+            input_tokens = getattr(response.usage_metadata, 'prompt_token_count', 0)
+            output_tokens = getattr(response.usage_metadata, 'candidates_token_count', 0)
+            cost_tracker.add_gemini_cost(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                model="gemini-2.5-flash"
+            )
+
         # 비동기 대기 (Rate Limit 대응)
         await asyncio.sleep(2)
 
@@ -158,7 +175,7 @@ async def summarize_pdf_with_gemini(file_path: str, title: str) -> str:
         return "첨부 문서 요약을 생성할 수 없습니다."
 
 
-async def process_agenda_attachments(agenda_id: str, agenda_title: str, attachments_json: str, conn: sqlite3.Connection, idx: int, total: int) -> Optional[tuple]:
+async def process_agenda_attachments(agenda_id: str, agenda_title: str, attachments_json: str, conn: sqlite3.Connection, idx: int, total: int, cost_tracker: CostTracker = None) -> Optional[tuple]:
     """
     안건의 첨부 문서를 처리하여 요약 생성 (비동기)
 
@@ -169,6 +186,7 @@ async def process_agenda_attachments(agenda_id: str, agenda_title: str, attachme
         conn: SQLite 연결
         idx: 현재 인덱스
         total: 전체 개수
+        cost_tracker: 비용 추적 객체
 
     Returns:
         (agenda_id, updated_json, status) 튜플 또는 None
@@ -218,7 +236,7 @@ async def process_agenda_attachments(agenda_id: str, agenda_title: str, attachme
             print(f"    📄 파일 크기: {file_size / 1024:.1f} KB")
 
             # Gemini로 요약 생성 (비동기)
-            summary = await summarize_pdf_with_gemini(tmp_path, title)
+            summary = await summarize_pdf_with_gemini(tmp_path, title, cost_tracker)
             print(f"    ✅ 요약: {summary[:80]}...")
 
             # summary 추가
@@ -247,7 +265,11 @@ async def process_agenda_attachments(agenda_id: str, agenda_title: str, attachme
 
 
 async def main_async():
-    """메인 함수 (비동기)"""
+    """메인 함수 (비동기)
+
+    Returns:
+        CostTracker: 비용 추적 객체
+    """
     global success_count, fail_count
 
     print("=" * 80)
@@ -260,7 +282,7 @@ async def main_async():
     if not os.path.exists(db_path):
         print(f"❌ DB 파일이 없습니다: {db_path}")
         print("먼저 'python database/create_agenda_database.py'를 실행하세요.")
-        return
+        return None
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -278,23 +300,24 @@ async def main_async():
         print("⚠️  첨부 문서가 있는 안건이 없습니다.")
         print("먼저 크롤링 및 파싱을 완료하세요.")
         conn.close()
-        return
+        return None
 
     print(f"📋 첨부 문서가 있는 안건: {len(rows)}개")
-    print(f"⚡ 병렬 처리: 3개씩 동시 처리\n")
+    print(f"⚡ 병렬 처리: 10개씩 동시 처리\n")
 
     # 초기화
     success_count = 0
     fail_count = 0
     skip_count = 0
+    cost_tracker = CostTracker()
 
-    # 3개씩 병렬 처리 (PDF 요약은 시간이 오래 걸리므로 3개씩만)
-    semaphore = asyncio.Semaphore(3)
+    # 10개씩 병렬 처리
+    semaphore = asyncio.Semaphore(10)
 
     async def process_with_semaphore(agenda_id, agenda_title, attachments_json, idx):
         async with semaphore:
             return await process_agenda_attachments(
-                agenda_id, agenda_title, attachments_json, conn, idx, len(rows)
+                agenda_id, agenda_title, attachments_json, conn, idx, len(rows), cost_tracker
             )
 
     tasks = [
@@ -330,10 +353,23 @@ async def main_async():
     print(f"  - 실패: {fail_count}개")
     print()
 
+    # 비용 요약 출력
+    print("=" * 80)
+    print("💰 Step 5 비용 요약 (Gemini 2.5 Flash)")
+    print("=" * 80)
+    cost_tracker.print_summary()
+    print()
+
+    return cost_tracker
+
 
 def main():
-    """동기 래퍼 함수"""
-    asyncio.run(main_async())
+    """동기 래퍼 함수
+
+    Returns:
+        CostTracker: 비용 추적 객체
+    """
+    return asyncio.run(main_async())
 
 
 if __name__ == "__main__":

@@ -226,10 +226,10 @@ python database/generate_attachment_summaries.py
 
 ### 7단계: 서버 실행
 
-**파일:** `backend_server.py`
+**파일:** `app.py`
 
 ```bash
-python backend_server.py
+python app.py
 ```
 
 **API 엔드포인트:**
@@ -248,7 +248,7 @@ python backend_server.py
 
 ```
 seoulloc/
-├── backend_server.py                # FastAPI 백엔드
+├── app.py                # FastAPI 백엔드
 │
 ├── crawling/                        # 크롤링 (2개 파일)
 │   ├── extract_session_332_links.py # URL 추출 (Selenium)
@@ -337,7 +337,7 @@ python database/generate_ai_summaries.py
 python database/generate_attachment_summaries.py
 
 # 9. 서버 실행
-python backend_server.py
+python app.py
 ```
 
 ---

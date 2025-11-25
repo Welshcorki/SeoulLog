@@ -5,7 +5,7 @@ FastAPI 백엔드 서버 (리팩토링 후)
 모든 비즈니스 로직과 DB 접근은 Service 계층에 위임합니다.
 
 사용법:
-    python backend_server.py
+    python app.py
 
 API 엔드포인트:
     GET  /                              - main.html 제공

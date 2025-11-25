@@ -42,6 +42,10 @@ def setup_logging():
         ]
     )
 
+    # AFC (Automatic Function Calling) 로그 숨기기
+    logging.getLogger('google.genai').setLevel(logging.WARNING)
+    logging.getLogger('google.ai.generativelanguage').setLevel(logging.WARNING)
+
     return logging.getLogger(__name__)
 
 logger = setup_logging()
@@ -182,7 +186,8 @@ def extract_agenda_mapping(
     url: str,
     api_key: str,
     attachments: List[Dict] = None,
-    model: str = "gemini-2.5-pro"
+    model: str = "gemini-2.5-pro",
+    max_retries: int = 3
 ) -> Dict:
     """
     1단계: Gemini로 안건 라인 매핑 추출
@@ -194,6 +199,7 @@ def extract_agenda_mapping(
         api_key: Google API Key
         attachments: 첨부 문서 목록 [{"title": "...", "url": "..."}]
         model: 사용할 모델
+        max_retries: 최대 재시도 횟수 (기본: 3)
 
     Returns:
         {
@@ -219,6 +225,47 @@ def extract_agenda_mapping(
     print("1단계: 안건 라인 매핑 추출 (Gemini 2.5 Pro)")
     print("=" * 80)
     print()
+
+    # 재시도 로직
+    for attempt in range(1, max_retries + 1):
+        try:
+            if attempt > 1:
+                print(f"🔄 재시도 {attempt}/{max_retries}...")
+                logger.info(f"재시도 {attempt}/{max_retries}")
+
+            result, tokens = _extract_agenda_mapping_once(
+                txt_content, title, url, api_key, attachments, model
+            )
+            return result, tokens
+
+        except json.JSONDecodeError as e:
+            if attempt < max_retries:
+                print(f"⚠️  JSON 파싱 실패 (시도 {attempt}/{max_retries}): {e}")
+                print(f"   재시도합니다...")
+                logger.warning(f"JSON 파싱 실패 (시도 {attempt}/{max_retries}): {e}")
+                continue
+            else:
+                print(f"❌ 최대 재시도 횟수 ({max_retries}회) 도달, 실패")
+                logger.error(f"최대 재시도 횟수 도달: {e}")
+                raise
+        except Exception as e:
+            # JSON 파싱 외 다른 에러는 재시도 없이 바로 raise
+            raise
+
+
+def _extract_agenda_mapping_once(
+    txt_content: str,
+    title: str,
+    url: str,
+    api_key: str,
+    attachments: List[Dict] = None,
+    model: str = "gemini-2.5-pro"
+) -> Dict:
+    """
+    1단계: Gemini로 안건 라인 매핑 추출 (단일 시도)
+
+    재시도 로직 없이 한 번만 실행하는 내부 함수
+    """
 
     client = genai.Client(api_key=api_key)
 
@@ -261,6 +308,12 @@ def extract_agenda_mapping(
 2단계: 각 안건의 논의 구간을 개별적으로 지정
    - "---" 구분선, "○위원장" 발언, 안건명 언급을 참고하여 line_start, line_end 지정
    - **일괄 상정된 안건도 본문 분석으로 각각 분리** (예: "제1항, 제2항 일괄 상정" → 개별 구간 찾기)
+
+**회의록 구조 이해:**
+- 회의록은 "---" 구분선으로 섹션이 나뉘어져 있음
+- 각 "---" 구분선 사이에 실제 발언("○위원장", "○위원" 등)이 포함된 구간은 하나의 안건으로 추출
+- 첨부 문서(download_url)는 해당 안건 논의 직후에 "(참고)" 형태로 제공되며, 바로 앞 안건의 attachments에 매핑
+- line_start는 실제 발언이 시작되는 첫 라인, line_end는 발언이 끝나는 마지막 라인 ("---" 구분선이나 "(참고)" 섹션 직전)
 
 **안건 외 섹션:**
 - 안건 목록에 없어도 실제 회의 내용(개의, 질의응답, 5분자유발언, 산회 등)은 모두 포함
@@ -335,22 +388,40 @@ JSON 출력 형식:
 - status는 회의록에서 추출한 실제 처리 상태 (없으면 "접수")
 """
 
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.1,
-            response_mime_type="application/json",
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.1,
+                response_mime_type="application/json",
+            )
         )
-    )
+    except Exception as e:
+        error_msg = f"Gemini API 호출 실패: {e}"
+        print(f"❌ {error_msg}")
+        logger.error(error_msg)
+        import traceback
+        traceback.print_exc()
+        raise
+
+    # finish_reason 확인 (디버깅)
+    if response.candidates and len(response.candidates) > 0:
+        finish_reason = getattr(response.candidates[0], 'finish_reason', None)
+        if finish_reason:
+            print(f"🔍 Finish Reason: {finish_reason}")
+            if finish_reason not in ['STOP', 1]:  # STOP = 정상 완료
+                print(f"⚠️  응답이 비정상적으로 종료됨: {finish_reason}")
 
     response_text = None
     try:
         response_text = response.text
-    except:
-        pass
+    except Exception as e:
+        print(f"❌ response.text 추출 실패: {e}")
+        logger.error(f"response.text 추출 실패: {e}")
 
     if not response_text:
+        print("⚠️  response.text가 비어있음, candidates에서 추출 시도...")
         if response.candidates and len(response.candidates) > 0:
             candidate = response.candidates[0]
             if hasattr(candidate, 'content') and candidate.content:
@@ -359,11 +430,41 @@ JSON 출력 형식:
                         part = candidate.content.parts[0]
                         if hasattr(part, 'text'):
                             response_text = part.text
+                            print(f"✅ candidates에서 추출 성공 (길이: {len(response_text)})")
 
     if not response_text:
-        raise Exception("응답이 비어있습니다")
+        error_msg = "Gemini 응답이 비어있습니다"
+        print(f"❌ {error_msg}")
+        print(f"   Response: {response}")
+        if hasattr(response, 'prompt_feedback'):
+            print(f"   Prompt Feedback: {response.prompt_feedback}")
+        logger.error(error_msg)
+        raise Exception(error_msg)
 
-    result = json.loads(response_text)
+    try:
+        result = json.loads(response_text)
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON 파싱 에러: {e}")
+        print(f"   Response text (처음 500자): {response_text[:500]}")
+
+        # 전체 응답을 파일로 저장
+        error_log_dir = Path("logs/gemini_errors")
+        error_log_dir.mkdir(parents=True, exist_ok=True)
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        error_file = error_log_dir / f"json_error_{timestamp}.txt"
+        with open(error_file, 'w', encoding='utf-8') as f:
+            f.write(f"=== JSON 파싱 에러 ===\n")
+            f.write(f"회의록: {title}\n")
+            f.write(f"URL: {url}\n")
+            f.write(f"에러: {e}\n")
+            f.write(f"모델: {model}\n")
+            f.write(f"\n=== Gemini 응답 전문 ===\n")
+            f.write(response_text)
+        print(f"   전체 응답 저장: {error_file}")
+
+        logger.error(f"JSON 파싱 에러: {e}")
+        raise
 
     # 토큰 정보
     tokens = {"input": 0, "output": 0}
@@ -469,6 +570,17 @@ def parse_section_pure(section_text: str, agenda_title: str, speakers: List[str]
         if not line:
             continue
 
+        # 구조적 요소 필터링
+        if line.startswith('---'):
+            continue
+        if '(참고)' in line:
+            continue
+        if '(회의록 끝에 실음)' in line:
+            continue
+        # 안건 번호 라인 필터링 (예: "1. 안건명 [](url)" 형태)
+        if re.match(r'^\d+\.\s+.+\[\]\(https?://', line):
+            continue
+
         # ○로 시작하는 발언자 라인인지 확인
         if line.startswith('○'):
             # 이전 발언 저장
@@ -516,7 +628,7 @@ def parse_with_pure_code(txt_content: str, agenda_mapping: List[Dict]) -> List[D
     2단계: 순수 코드로 발언 추출
 
     Args:
-        txt_content: 원본 txt 내용 (헤더 제거 전)
+        txt_content: 회의록 본문 (헤더 이미 제거됨)
         agenda_mapping: 1단계 결과 (안건 매핑)
 
     Returns:
@@ -528,16 +640,8 @@ def parse_with_pure_code(txt_content: str, agenda_mapping: List[Dict]) -> List[D
     print("=" * 80)
     print()
 
-    # 헤더 제거 (=== 이후부터)
+    # txt_content는 이미 헤더가 제거된 상태로 전달됨
     lines = txt_content.split('\n')
-    separator_index = -1
-    for i, line in enumerate(lines):
-        if '=' * 80 in line:
-            separator_index = i
-            break
-
-    if separator_index != -1:
-        lines = lines[separator_index + 1:]
 
     all_chunks = []
     last_speaker = None  # 이전 발언자 추적
@@ -779,7 +883,7 @@ def extract_metadata_hybrid(
     if not verbose:
         sys.stdout = StringIO()
 
-    chunks = parse_with_pure_code(content, stage1_result['agenda_mapping'])
+    chunks = parse_with_pure_code(txt_content, stage1_result['agenda_mapping'])
 
     if not verbose:
         sys.stdout = old_stdout
@@ -802,6 +906,455 @@ def extract_metadata_hybrid(
     if verbose:
         print("=" * 100)
         print("✅ 하이브리드 파싱 완료!")
+        print("=" * 100)
+        print(f"총 발언 수: {len(chunks)}개")
+        print(f"Stage 1 토큰: {tokens['input']:,} + {tokens['output']:,}")
+        print(f"Stage 2 방식: 순수 Python 코드 (비용 0원)")
+        print()
+
+    return final_result
+
+
+# ============================================================================
+# Gemini 2.5 Flash 전용 함수 (개선된 프롬프트 적용)
+# ============================================================================
+
+def extract_agenda_mapping_flash(
+    txt_content: str,
+    title: str,
+    url: str,
+    api_key: str,
+    attachments: List[Dict] = None,
+    model: str = "gemini-2.5-flash",
+    max_retries: int = 3
+) -> Dict:
+    """
+    1단계: Gemini Flash로 안건 라인 매핑 추출 (개선된 프롬프트)
+
+    Args:
+        txt_content: 회의록 텍스트
+        title: 회의록 제목
+        url: 회의록 URL
+        api_key: Google API Key
+        attachments: 첨부 문서 목록 [{"title": "...", "url": "..."}]
+        model: 사용할 모델 (기본: gemini-2.5-flash)
+        max_retries: 최대 재시도 횟수 (기본: 3)
+
+    Returns:
+        {
+            "meeting_info": {
+                "title": "...",
+                "url": "...",
+                "date": "YYYY.MM.DD"
+            },
+            "agenda_mapping": [
+                {
+                    "agenda_title": "안건 제목",
+                    "line_start": 1,
+                    "line_end": 50,
+                    "speakers": ["발언자1", "발언자2"],
+                    "attachments": [{"title": "...", "url": "..."}]
+                },
+                ...
+            ]
+        }
+    """
+    logger.info("1단계: 안건 라인 매핑 추출 시작 (Flash)")
+    print("=" * 80)
+    print("1단계: 안건 라인 매핑 추출 (Gemini 2.5 Flash - 개선된 프롬프트)")
+    print("=" * 80)
+    print()
+
+    # 재시도 로직
+    for attempt in range(1, max_retries + 1):
+        try:
+            if attempt > 1:
+                print(f"🔄 재시도 {attempt}/{max_retries}...")
+                logger.info(f"재시도 {attempt}/{max_retries}")
+
+            result, tokens = _extract_agenda_mapping_flash_once(
+                txt_content, title, url, api_key, attachments, model
+            )
+            return result, tokens
+
+        except json.JSONDecodeError as e:
+            if attempt < max_retries:
+                print(f"⚠️  JSON 파싱 실패 (시도 {attempt}/{max_retries}): {e}")
+                print(f"   재시도합니다...")
+                logger.warning(f"JSON 파싱 실패 (시도 {attempt}/{max_retries}): {e}")
+                continue
+            else:
+                print(f"❌ 최대 재시도 횟수 ({max_retries}회) 도달, 실패")
+                logger.error(f"최대 재시도 횟수 도달: {e}")
+                raise
+        except Exception as e:
+            # JSON 파싱 외 다른 에러는 재시도 없이 바로 raise
+            raise
+
+
+def _extract_agenda_mapping_flash_once(
+    txt_content: str,
+    title: str,
+    url: str,
+    api_key: str,
+    attachments: List[Dict] = None,
+    model: str = "gemini-2.5-flash"
+) -> Dict:
+    """
+    1단계: Gemini Flash로 안건 라인 매핑 추출 (단일 시도)
+
+    재시도 로직 없이 한 번만 실행하는 내부 함수
+    """
+
+    client = genai.Client(api_key=api_key)
+
+    # 라인 번호 추가
+    lines = txt_content.split('\n')
+    numbered_text = ""
+    for i, line in enumerate(lines, 1):
+        numbered_text += f"{i:4d} | {line}\n"
+
+    # 첨부 문서 정보를 텍스트로 변환 (Gemini에게 전달)
+    attachments_text = ""
+    if attachments:
+        attachments_text = "\n\n첨부 문서 목록:\n"
+        for idx, att in enumerate(attachments, 1):
+            attachments_text += f"{idx}. {att['title']} (URL: {att['url']})\n"
+
+    prompt = f"""다음은 서울시의회 회의록입니다. 이 회의록을 분석하여 안건별 라인 번호 매핑을 추출해주세요.
+
+회의록 제목: {title}
+회의록 URL: {url}
+{attachments_text}
+
+회의록 내용 (라인 번호 포함):
+{numbered_text}
+
+작업:
+1. meeting_info 추출:
+   - meeting_url: 위에 제공된 "회의록 URL"을 그대로 사용
+   - date: 제목에서 날짜 추출 (YYYY.MM.DD 형식)
+
+2. agenda_mapping 추출:
+
+**안건 식별 규칙:**
+
+1단계: "심사된안건" 또는 "의사일정" 섹션에서 안건 목록 추출
+   - "1. 2. 3. ..." 형태의 안건 목록을 모두 찾으세요
+   - agenda_title은 번호를 제외한 순수 안건명만 사용
+   - 예: "1. 기획조정실 현안 업무보고" → "기획조정실 현안 업무보고"
+
+2단계: 각 안건의 논의 구간을 개별적으로 지정
+   - "---" 구분선, "○위원장" 발언, 안건명 언급을 참고하여 line_start, line_end 지정
+   - **일괄 상정된 안건도 본문 분석으로 각각 분리** (예: "제1항, 제2항 일괄 상정" → 개별 구간 찾기)
+
+**회의록 구조 이해:**
+- 회의록은 "---" 구분선으로 섹션이 나뉘어져 있음
+- 각 "---" 구분선 사이에 실제 발언("○위원장", "○위원" 등)이 포함된 구간은 하나의 안건으로 추출
+- 첨부 문서(download_url)는 해당 안건 논의 직후에 "(참고)" 형태로 제공되며, 바로 앞 안건의 attachments에 매핑
+- line_start는 실제 발언이 시작되는 첫 라인, line_end는 발언이 끝나는 마지막 라인 ("---" 구분선이나 "(참고)" 섹션 직전)
+
+**안건 외 섹션:**
+- 안건 목록에 없어도 실제 회의 내용(개의, 질의응답, 5분자유발언, 산회 등)은 모두 포함
+- 섹션 성격에 맞는 적절한 제목 사용
+
+**첨부 문서 매칭:**
+- 회의록 본문에서 마크다운 링크 형식의 첨부 문서를 찾아서 매칭
+  * 형식: [문서명](https://ms.smc.seoul.kr/record/appendixDownload.do?key=...)
+  * (참고) 섹션의 링크는 바로 직전 안건에 속함
+- 각 안건에 해당하는 첨부 문서를 attachments 필드에 배열로 추가
+- 안건과 관련 없는 첨부 문서는 포함하지 않음
+- 첨부 문서가 없는 안건은 attachments를 빈 배열로 설정
+- **중요**: URL이 있으면 반드시 포함하고, URL이 없으면 null로 설정하지 말고 해당 항목을 제외
+
+**중요:**
+- 모든 안건을 빠짐없이 포함 (단 하나도 누락 금지)
+- "(회의록 끝에 실음)" 또는 "(참고)" 섹션은 제외
+- speakers: 해당 구간의 발언자 목록 (○ 다음 이름, 발언 순서대로)
+
+**안건 타입 분류:**
+각 안건에 agenda_type 필드를 추가하여 다음 중 하나로 분류:
+- "legislation": 조례안, 규칙안 등 입법 안건
+- "report": 업무보고, 현안보고 등 보고 안건
+- "budget": 예산안, 결산 관련 안건
+- "consent": 동의안, 승인안, 의견청취 안건
+- "procedural": 개의, 개회, 폐회, 산회 등 절차적 안건
+- "personnel": 위원장 선거, 위원 선임 등 인사 안건
+- "discussion": 질의응답, 5분자유발언 등 토론
+- "other": 기타
+
+**안건 상태 추출:**
+각 안건의 처리 상태를 파악하여 status 필드에 기록:
+- 회의록에서 해당 안건이 어떻게 처리되었는지 찾아서 기록
+- 가능한 상태 값:
+  * "원안가결": "원안가결", "가결되었음", "의결되었음" 등
+  * "수정가결": "수정가결", "일부 수정하여 가결" 등
+  * "부결": "부결되었음"
+  * "본회의 상정": "본회의에 부의", "본회의 상정" 등
+  * "위원회 심사중": "위원회에 상정", "심사 중" 등
+  * "접수": 상태가 명시되지 않은 경우 기본값
+- 회의록에 명시된 표현을 그대로 사용 (예: "원안가결되었음을 선포합니다" → "원안가결")
+- 상태가 불명확하면 "접수" 사용
+
+JSON 출력 형식:
+{{{{
+  "meeting_info": {{{{
+    "title": "{title}",
+    "meeting_url": "{url}",
+    "date": "YYYY.MM.DD"
+  }}}},
+  "agenda_mapping": [
+    {{{{
+      "agenda_title": "안건명",
+      "agenda_type": "legislation",
+      "status": "원안가결",
+      "line_start": 1,
+      "line_end": 50,
+      "speakers": ["발언자1", "발언자2"],
+      "attachments": [
+        {{{{"title": "문서명", "download_url": "첨부파일 다운로드 URL"}}}}
+      ]
+    }}}}
+  ]
+}}}}
+
+규칙:
+- 순수 JSON만 출력
+- agenda_mapping은 시간 순서대로 배열
+- line_start, line_end는 실제 라인 번호 사용
+- attachments는 해당 안건에 속한 첨부 문서만 포함 (없으면 빈 배열)
+- agenda_type은 반드시 위 8가지 중 하나로 분류
+- status는 회의록에서 추출한 실제 처리 상태 (없으면 "접수")
+"""
+
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.1,
+                response_mime_type="application/json",
+            )
+        )
+    except Exception as e:
+        error_msg = f"Gemini API 호출 실패: {e}"
+        print(f"❌ {error_msg}")
+        logger.error(error_msg)
+        import traceback
+        traceback.print_exc()
+        raise
+
+    # finish_reason 확인 (디버깅)
+    if response.candidates and len(response.candidates) > 0:
+        finish_reason = getattr(response.candidates[0], 'finish_reason', None)
+        if finish_reason:
+            print(f"🔍 Finish Reason: {finish_reason}")
+            if finish_reason not in ['STOP', 1]:  # STOP = 정상 완료
+                print(f"⚠️  응답이 비정상적으로 종료됨: {finish_reason}")
+
+    response_text = None
+    try:
+        response_text = response.text
+    except Exception as e:
+        print(f"❌ response.text 추출 실패: {e}")
+        logger.error(f"response.text 추출 실패: {e}")
+
+    if not response_text:
+        print("⚠️  response.text가 비어있음, candidates에서 추출 시도...")
+        if response.candidates and len(response.candidates) > 0:
+            candidate = response.candidates[0]
+            if hasattr(candidate, 'content') and candidate.content:
+                if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                    if len(candidate.content.parts) > 0:
+                        part = candidate.content.parts[0]
+                        if hasattr(part, 'text'):
+                            response_text = part.text
+                            print(f"✅ candidates에서 추출 성공 (길이: {len(response_text)})")
+
+    if not response_text:
+        error_msg = "Gemini 응답이 비어있습니다"
+        print(f"❌ {error_msg}")
+        print(f"   Response: {response}")
+        if hasattr(response, 'prompt_feedback'):
+            print(f"   Prompt Feedback: {response.prompt_feedback}")
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    try:
+        result = json.loads(response_text)
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON 파싱 에러: {e}")
+        print(f"   Response text (처음 500자): {response_text[:500]}")
+
+        # 전체 응답을 파일로 저장
+        error_log_dir = Path("logs/gemini_errors")
+        error_log_dir.mkdir(parents=True, exist_ok=True)
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        error_file = error_log_dir / f"json_error_{timestamp}.txt"
+        with open(error_file, 'w', encoding='utf-8') as f:
+            f.write(f"=== JSON 파싱 에러 ===\n")
+            f.write(f"회의록: {title}\n")
+            f.write(f"URL: {url}\n")
+            f.write(f"에러: {e}\n")
+            f.write(f"모델: {model}\n")
+            f.write(f"\n=== Gemini 응답 전문 ===\n")
+            f.write(response_text)
+        print(f"   전체 응답 저장: {error_file}")
+
+        logger.error(f"JSON 파싱 에러: {e}")
+        raise
+
+    # 토큰 정보
+    tokens = {"input": 0, "output": 0}
+    if hasattr(response, 'usage_metadata'):
+        tokens["input"] = getattr(response.usage_metadata, 'prompt_token_count', 0)
+        tokens["output"] = getattr(response.usage_metadata, 'candidates_token_count', 0)
+
+    logger.info(f"1단계 완료 (Flash): {len(result['agenda_mapping'])}개 안건, 토큰={tokens['input']}+{tokens['output']}")
+    print(f"✅ 안건 매핑 추출 완료 (Flash): {len(result['agenda_mapping'])}개")
+    print(f"📊 토큰: input={tokens['input']:,}, output={tokens['output']:,}")
+    print()
+
+    return result, tokens
+
+
+def extract_metadata_hybrid_flash(
+    txt_path: str,
+    api_key: str,
+    verbose: bool = True
+) -> Dict:
+    """
+    하이브리드 파싱 (Flash 전용): 1단계 Gemini Flash + 2단계 순수 코드 (txt/md 파일 기반)
+
+    개선된 프롬프트를 사용하여 gemini-2.5-flash의 파싱 정확도를 향상시킵니다.
+
+    Note: txt 파일에는 첨부 문서 정보가 없으므로 attachments는 빈 배열입니다.
+          첨부 문서가 필요한 경우 extract_metadata_from_url()을 사용하세요.
+
+    Args:
+        txt_path: txt/md 파일 경로
+        api_key: Google API Key
+        verbose: 상세 출력 여부 (기본: True)
+
+    Returns:
+        {
+            "meeting_info": {...},
+            "agenda_mapping": [...],
+            "chunks": [...],
+            "usage": {...}
+        }
+    """
+    logger.info(f"하이브리드 파싱 시작 (Flash): {txt_path}")
+
+    if verbose:
+        print("=" * 100)
+        print("하이브리드 파싱 (Flash): 1단계 Gemini Flash + 2단계 순수 코드")
+        print("=" * 100)
+        print()
+
+    # txt/md 파일 읽기
+    with open(txt_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # 헤더에서 메타데이터 추출 (TXT와 MD 둘 다 지원)
+    lines_raw = content.split('\n')
+
+    # 제목 추출
+    if lines_raw and lines_raw[0].startswith('# '):
+        # MD 형식: # 제목
+        title = lines_raw[0].replace('# ', '').strip()
+    elif lines_raw and lines_raw[0].startswith('제목: '):
+        # TXT 형식: 제목: xxx
+        title = lines_raw[0].replace('제목: ', '').strip()
+    else:
+        title = ""
+
+    # URL 추출
+    url = ""
+    for line in lines_raw[:10]:  # 첫 10줄에서 URL 찾기
+        if line.startswith('**URL**:'):
+            # MD 형식: **URL**: https://...
+            url = line.replace('**URL**:', '').strip()
+            break
+        elif line.startswith('URL: '):
+            # TXT 형식: URL: https://...
+            url = line.replace('URL: ', '').strip()
+            break
+
+    # 본문만 추출 (구분선 이후 또는 크롤링 시간 이후)
+    separator_index = content.find('=' * 80)
+    if separator_index != -1:
+        txt_content = content[separator_index + 80:].strip()
+    else:
+        # MD 파일의 경우 크롤링 시간 이후부터
+        crawl_time_index = content.find('**크롤링 시간**:')
+        if crawl_time_index != -1:
+            # 다음 줄부터 시작
+            remaining = content[crawl_time_index:]
+            next_line = remaining.find('\n')
+            if next_line != -1:
+                txt_content = remaining[next_line + 1:].strip()
+            else:
+                txt_content = content
+        else:
+            txt_content = content
+
+    if verbose:
+        print(f"📄 파일: {txt_path}")
+        print(f"📝 제목: {title}")
+        print(f"📏 크기: {len(txt_content):,} bytes")
+        print()
+
+    # 1단계: 안건 매핑 추출 (Gemini Flash - 개선된 프롬프트)
+    import sys
+    from io import StringIO
+    old_stdout = sys.stdout
+    if not verbose:
+        sys.stdout = StringIO()
+
+    # txt에서 attachments는 추출할 수 없으므로 빈 리스트 전달
+    stage1_result, tokens = extract_agenda_mapping_flash(txt_content, title, url, api_key, [])
+
+    if not verbose:
+        sys.stdout = old_stdout
+
+    # 1단계 결과 저장 (디버깅용)
+    stage1_dir = Path("data/result_txt_gemini_flash")
+    stage1_dir.mkdir(parents=True, exist_ok=True)
+    stage1_filename = Path(txt_path).stem + "_stage1_flash.json"
+    stage1_path = stage1_dir / stage1_filename
+    with open(stage1_path, 'w', encoding='utf-8') as f:
+        json.dump(stage1_result, f, ensure_ascii=False, indent=2)
+    logger.info(f"1단계 결과 저장 (Flash): {stage1_path}")
+
+    # 2단계: 발언 추출 (순수 코드)
+    if not verbose:
+        sys.stdout = StringIO()
+
+    chunks = parse_with_pure_code(txt_content, stage1_result['agenda_mapping'])
+
+    if not verbose:
+        sys.stdout = old_stdout
+
+    # 최종 결과 (agenda_mapping 포함 - attachments는 빈 배열)
+    final_result = {
+        "meeting_info": stage1_result['meeting_info'],
+        "agenda_mapping": stage1_result['agenda_mapping'],  # ⭐ 추가: 안건 매핑 (Flash)
+        "chunks": chunks,
+        "usage": {
+            "stage1_model": "gemini-2.5-flash",
+            "stage2_method": "pure_python_code",
+            "stage1_tokens": tokens,
+            "total_chunks": len(chunks)
+        }
+    }
+
+    logger.info(f"하이브리드 파싱 완료 (Flash): {len(chunks)}개 발언")
+
+    if verbose:
+        print("=" * 100)
+        print("✅ 하이브리드 파싱 완료 (Flash)!")
         print("=" * 100)
         print(f"총 발언 수: {len(chunks)}개")
         print(f"Stage 1 토큰: {tokens['input']:,} + {tokens['output']:,}")

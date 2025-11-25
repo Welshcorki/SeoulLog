@@ -268,7 +268,8 @@ def view_sample_data(conn):
         print("-" * 80)
 
 
-if __name__ == "__main__":
+def main():
+    """메인 함수: 안건별 SQLite 데이터베이스 생성"""
     print("=" * 80)
     print("안건별 SQLite 데이터베이스 생성")
     print("=" * 80)
@@ -289,3 +290,7 @@ if __name__ == "__main__":
     print("\n✅ 데이터베이스 생성 완료!")
     print("\n💡 AI 요약을 생성하려면 다음 명령어를 실행하세요:")
     print("   python database/generate_ai_summaries.py")
+
+
+if __name__ == "__main__":
+    main()

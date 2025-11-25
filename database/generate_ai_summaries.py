@@ -17,9 +17,16 @@ import sqlite3
 import os
 import asyncio
 import threading
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+
+# 프로젝트 루트를 Python path에 추가
+sys.path.append(str(Path(__file__).parent.parent))
+
+from utils.cost_tracker import CostTracker
 
 load_dotenv()
 
@@ -50,7 +57,7 @@ def chunk_text(text, chunk_size=2000):
     return chunks
 
 
-async def summarize_text_chunk_async(text_chunk, agenda_title, chunk_index):
+async def summarize_text_chunk_async(text_chunk, agenda_title, chunk_index, cost_tracker=None):
     """텍스트 청크 하나를 요약 (비동기)"""
     if not client or not text_chunk.strip():
         return None
@@ -68,6 +75,16 @@ async def summarize_text_chunk_async(text_chunk, agenda_title, chunk_index):
         )
         summary = response.text.strip()
 
+        # 비용 추적
+        if cost_tracker and hasattr(response, 'usage_metadata'):
+            input_tokens = getattr(response.usage_metadata, 'prompt_token_count', 0)
+            output_tokens = getattr(response.usage_metadata, 'candidates_token_count', 0)
+            cost_tracker.add_gemini_cost(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                model="gemini-2.5-flash"
+            )
+
         # 비동기 대기 (다른 작업 가능)
         await asyncio.sleep(1)
 
@@ -78,7 +95,7 @@ async def summarize_text_chunk_async(text_chunk, agenda_title, chunk_index):
         return None
 
 
-async def summarize_agenda_async(chunk_summaries, agenda_title):
+async def summarize_agenda_async(chunk_summaries, agenda_title, cost_tracker=None):
     """청크 요약들을 합쳐서 최종 요약 (비동기)"""
     if not client or not chunk_summaries:
         return None
@@ -106,6 +123,16 @@ async def summarize_agenda_async(chunk_summaries, agenda_title):
         )
         summary = response.text.strip()
 
+        # 비용 추적
+        if cost_tracker and hasattr(response, 'usage_metadata'):
+            input_tokens = getattr(response.usage_metadata, 'prompt_token_count', 0)
+            output_tokens = getattr(response.usage_metadata, 'candidates_token_count', 0)
+            cost_tracker.add_gemini_cost(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                model="gemini-2.5-flash"
+            )
+
         await asyncio.sleep(1)
 
         # 200자 넘으면 자르기 (LLM이 150자로 생성하므로 보통 200자 이하)
@@ -119,7 +146,7 @@ async def summarize_agenda_async(chunk_summaries, agenda_title):
         return None
 
 
-async def extract_key_issues_async(chunk_summaries, agenda_title):
+async def extract_key_issues_async(chunk_summaries, agenda_title, cost_tracker=None):
     """핵심 의제 추출 (비동기)"""
     if not client or not chunk_summaries:
         return None
@@ -146,6 +173,16 @@ async def extract_key_issues_async(chunk_summaries, agenda_title):
             contents=prompt
         )
         text = response.text.strip()
+
+        # 비용 추적
+        if cost_tracker and hasattr(response, 'usage_metadata'):
+            input_tokens = getattr(response.usage_metadata, 'prompt_token_count', 0)
+            output_tokens = getattr(response.usage_metadata, 'candidates_token_count', 0)
+            cost_tracker.add_gemini_cost(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                model="gemini-2.5-flash"
+            )
 
         await asyncio.sleep(1)
 
@@ -190,7 +227,7 @@ async def extract_key_issues_async(chunk_summaries, agenda_title):
         return None
 
 
-async def process_single_agenda(agenda_id, agenda_title, combined_text, total, idx):
+async def process_single_agenda(agenda_id, agenda_title, combined_text, total, idx, cost_tracker=None):
     """단일 안건 처리 (비동기)"""
     global completed_count, failed_count
 
@@ -206,7 +243,7 @@ async def process_single_agenda(agenda_id, agenda_title, combined_text, total, i
 
         # 2단계: 각 청크 요약 (병렬)
         chunk_summary_tasks = [
-            summarize_text_chunk_async(chunk, agenda_title, i+1)
+            summarize_text_chunk_async(chunk, agenda_title, i+1, cost_tracker)
             for i, chunk in enumerate(text_chunks)
         ]
         chunk_summaries = await asyncio.gather(*chunk_summary_tasks)
@@ -219,8 +256,8 @@ async def process_single_agenda(agenda_id, agenda_title, combined_text, total, i
             return None
 
         # 3단계: 최종 요약 + 핵심 의제 (병렬)
-        ai_summary_task = summarize_agenda_async(chunk_summaries, agenda_title)
-        key_issues_task = extract_key_issues_async(chunk_summaries, agenda_title)
+        ai_summary_task = summarize_agenda_async(chunk_summaries, agenda_title, cost_tracker)
+        key_issues_task = extract_key_issues_async(chunk_summaries, agenda_title, cost_tracker)
 
         ai_summary, key_issues = await asyncio.gather(ai_summary_task, key_issues_task)
 
@@ -243,12 +280,16 @@ async def process_single_agenda(agenda_id, agenda_title, combined_text, total, i
 
 
 async def generate_ai_summaries_async():
-    """비동기 병렬로 AI 요약 생성 (3개씩)"""
+    """비동기 병렬로 AI 요약 생성 (3개씩)
+
+    Returns:
+        CostTracker: 비용 추적 객체
+    """
     global completed_count, failed_count
 
     if not client:
         print("\n⚠️ Gemini API 없음 - AI 요약 건너뜀")
-        return
+        return None
 
     # DB 연결
     conn = sqlite3.connect(SQLITE_DB_PATH)
@@ -266,6 +307,7 @@ async def generate_ai_summaries_async():
     # 초기화
     completed_count = 0
     failed_count = 0
+    cost_tracker = CostTracker()
 
     # 10개씩 병렬 처리
     semaphore = asyncio.Semaphore(10)
@@ -273,7 +315,7 @@ async def generate_ai_summaries_async():
     async def process_with_semaphore(agenda, idx):
         async with semaphore:
             return await process_single_agenda(
-                agenda[0], agenda[1], agenda[2], len(agendas), idx
+                agenda[0], agenda[1], agenda[2], len(agendas), idx, cost_tracker
             )
 
     tasks = [process_with_semaphore(agenda, idx) for idx, agenda in enumerate(agendas, 1)]
@@ -304,10 +346,23 @@ async def generate_ai_summaries_async():
     print(f"❌ 실패: {failed_count}개")
     print("=" * 80)
 
+    # 비용 요약 출력
+    print("\n" + "=" * 80)
+    print("💰 Step 4 비용 요약 (Gemini 2.5 Flash)")
+    print("=" * 80)
+    cost_tracker.print_summary()
+    print()
+
+    return cost_tracker
+
 
 def generate_ai_summaries():
-    """동기 래퍼 함수"""
-    asyncio.run(generate_ai_summaries_async())
+    """동기 래퍼 함수
+
+    Returns:
+        CostTracker: 비용 추적 객체
+    """
+    return asyncio.run(generate_ai_summaries_async())
 
 
 if __name__ == "__main__":
