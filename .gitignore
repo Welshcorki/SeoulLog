@@ -144,3 +144,8 @@ capture.png
 error.png
 data.zip
 *.zip
+
+# ChromaDB 및 검색 인덱스 데이터 무시
+data/bm25_index/
+data/bm25_index_chunk/
+*.pkl
