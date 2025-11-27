@@ -132,25 +132,26 @@
     const messageInput = document.getElementById('message-input');
     const sendButton = document.getElementById('send-button');
     const backButton = document.getElementById('go-back');
+    const suggestionChips = document.querySelectorAll('.flex.gap-2.p-3.pl-16.flex-wrap');
 
     // --- Chat State ---
-    let sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
-    let chatHistory = []; // Array of [user_message, ai_response]
+    let sessionId;
+    let chatHistory; // Array of [user_message, ai_response]
 
     // --- Templates ---
-    const welcomeMessage = chatWindow.innerHTML; // Save initial welcome message
+    const welcomeContainer = document.querySelector('.flex.items-end.gap-3.p-4'); // The first message block
 
     const createMessageHTML = (sender, message) => {
+        // Basic markdown to HTML conversion for newlines
+        const formattedMessage = message.replace(/\n/g, '<br>');
         if (sender === 'user') {
             return `
                 <div class="flex items-end gap-3 p-4 justify-end">
                     <div class="flex flex-1 flex-col gap-1 items-end">
-                        <p class="text-base font-normal leading-normal flex max-w-[360px] rounded-lg rounded-br-none px-4 py-3 bg-primary text-white">${message}</p>
+                        <p class="text-base font-normal leading-normal flex max-w-[360px] rounded-lg rounded-br-none px-4 py-3 bg-primary text-white">${formattedMessage}</p>
                     </div>
                 </div>`;
         } else { // sender === 'ai'
-            // Basic markdown to HTML conversion for newlines
-            const formattedMessage = message.replace(/\n/g, '<br>');
             return `
                 <div class="flex items-end gap-3 p-4">
                     <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 h-10 shrink-0 self-start" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAytDtpPotWtCIza6sE43ag6YNJ8r4mDhSJTgG393zLL6NYQg4M8D_r9l12Pkv9FKOKB6qrVYG3hG0RSx8eWJ7KdhtSn_6ccMF5uf5Nr1igNjWoxIZXI_EiyBwqtnG9uto-ag6gyoVtN2Mhv2UjOab7zslcVZ0VgEWE_YeYXmj-Rdhu7j1pxLleYdl6QB0GtoKGRIZZZmTiQpuvRWOVhwZLnQf7tVWUK3yd69uUyaTN_qnKDW2BuhUT-REnluv0duYpJD3iOfJ9Kys');"></div>
@@ -181,10 +182,58 @@
         </div>`;
 
     // --- Functions ---
-    const addMessage = (sender, message) => {
+    const saveChat = () => {
+        const sessionData = {
+            sessionId: sessionId,
+            chatHistory: chatHistory
+        };
+        sessionStorage.setItem('chatSession', JSON.stringify(sessionData));
+    };
+
+    const loadChat = () => {
+        const savedSession = sessionStorage.getItem('chatSession');
+        if (savedSession) {
+            const sessionData = JSON.parse(savedSession);
+            sessionId = sessionData.sessionId;
+            chatHistory = sessionData.chatHistory;
+            
+            // Clear static messages and render history
+            const staticMessages = chatWindow.querySelectorAll('.flex.items-end.gap-3.p-4');
+            staticMessages.forEach((msg, index) => {
+                if (index > 0) msg.remove(); // Keep welcome message template
+            });
+            suggestionChips.forEach(chip => chip.remove());
+
+
+            if (chatHistory.length > 0) {
+                welcomeContainer.style.display = 'none'; // Hide initial welcome message if history exists
+                chatHistory.forEach(([userMsg, aiMsg]) => {
+                    addMessage('user', userMsg, false);
+                    addMessage('ai', aiMsg, false);
+                });
+            }
+
+        } else {
+            // No saved session, start a new one
+            sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+            chatHistory = [];
+            saveChat();
+            
+            // Initial Cleanup for new session
+            const staticMessages = chatWindow.querySelectorAll('.flex.items-end.gap-3.p-4');
+            staticMessages.forEach((msg, index) => {
+                if (index > 0) msg.remove();
+            });
+        }
+        console.log('Chat loaded. Session ID:', sessionId);
+    };
+
+    const addMessage = (sender, message, shouldScroll = true) => {
         const html = createMessageHTML(sender, message);
         chatWindow.insertAdjacentHTML('beforeend', html);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
+        if (shouldScroll) {
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
     };
 
     const showLoading = () => {
@@ -199,9 +248,15 @@
         }
     };
 
-    const sendMessage = async () => {
-        const message = messageInput.value.trim();
+    const sendMessage = async (messageText) => {
+        const message = messageText || messageInput.value.trim();
         if (!message) return;
+
+        // Hide welcome message and suggestions if this is the first message
+        if (chatHistory.length === 0) {
+            welcomeContainer.style.display = 'none';
+            suggestionChips.forEach(chip => chip.remove());
+        }
 
         // 1. Display user message
         addMessage('user', message);
@@ -233,8 +288,9 @@
             hideLoading();
             addMessage('ai', aiResponse);
 
-            // 5. Update history
+            // 5. Update history and save
             chatHistory.push([message, aiResponse]);
+            saveChat();
 
         } catch (error) {
             console.error('Error sending message:', error);
@@ -244,14 +300,17 @@
     };
     
     const resetChat = () => {
-        chatWindow.innerHTML = welcomeMessage;
-        chatHistory = [];
-        sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
-        console.log('Chat reset. New session:', sessionId);
+        sessionStorage.removeItem('chatSession');
+        // Clear UI
+        const allMessages = chatWindow.querySelectorAll('.flex.items-end.gap-3.p-4');
+        allMessages.forEach(msg => msg.remove());
+        // Reload to start fresh
+        window.location.reload();
+        console.log('Chat reset.');
     };
 
     // --- Event Listeners ---
-    sendButton.addEventListener('click', sendMessage);
+    sendButton.addEventListener('click', () => sendMessage());
     messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             sendMessage();
@@ -262,18 +321,16 @@
             window.history.back();
         });
     }
-
-    // --- Initial Cleanup ---
-    // Remove static messages from the initial HTML
-    const staticMessages = chatWindow.querySelectorAll('.flex.items-end.gap-3.p-4');
-    staticMessages.forEach((msg, index) => {
-        // Keep the first welcome message, remove the rest
-        if (index > 0) {
-            msg.remove();
-        }
-    });
     
-    console.log('Chat UI initialized. Session ID:', sessionId);
+    document.querySelectorAll('.flex.h-8.shrink-0.cursor-pointer').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const question = chip.querySelector('p').textContent;
+            sendMessage(question);
+        });
+    });
+
+    // --- Initialization ---
+    loadChat();
 
 </script>
 
