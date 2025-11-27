@@ -31,7 +31,7 @@ async def handle_chat(request: ChatRequest):
     rewritten_question = rewrite_query(request.message, history)
 
     # 3. 문서 검색 (미리 생성된 retriever_instance 사용)
-    retrieved_docs = retriever_instance.retrieve(rewritten_question, n_results=3)
+    retrieved_docs = retriever_instance.retrieve_documents(rewritten_question, n_results=3)
 
     # 4. 답변 생성
     final_answer = generate_answer(rewritten_question, retrieved_docs)
