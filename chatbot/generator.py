@@ -50,7 +50,8 @@ def generate_answer(query: str, documents: List[Dict]) -> str:
             temperature=0.3,
             max_tokens=1000
         )
-        answer = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        answer = content.strip() if content else ""
         print(f"   -> 답변 생성 완료")
         return answer
     except Exception as e:
