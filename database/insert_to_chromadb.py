@@ -23,6 +23,7 @@ from utils.custom_openai_embedding import CustomOpenAIEmbeddingFunction
 load_dotenv()
 
 
+
 def load_json_metadata(json_path: str) -> Dict:
     """
     JSON 파일에서 메타데이터 로드
@@ -72,8 +73,14 @@ def insert_to_chromadb(
     )
 
     # 2-1. OpenAI Embedding 함수 생성
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    # API 키가 없으면 명확하게 에러를 발생시켜 멈추게 함
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다. .env 파일을 확인해주세요.")
+
     openai_ef = CustomOpenAIEmbeddingFunction(
-        api_key=os.getenv("OPENAI_API_KEY"),
+        api_key=api_key,
         model_name="text-embedding-3-small"  # OpenAI Embedding 모델
     )
     print(f"✓ Embedding 모델: text-embedding-3-small")
@@ -171,10 +178,15 @@ def insert_to_chromadb(
         include=["documents", "metadatas"]
     )
 
-    print(f"  ID: {ids[0]}")
-    print(f"  발언자: {results['metadatas'][0]['speaker']}")
-    print(f"  안건: {results['metadatas'][0]['agenda']}")
-    print(f"  내용: {results['documents'][0][:100]}...")
+    # metadatas와 documents가 실제로 존재하는지 확인 (안전 장치)
+    if results['metadatas'] and results['documents']:
+        print(f"  ID: {ids[0]}")
+        # None이 아님이 확인되었으므로 안전하게 접근 가능
+        print(f"  발언자: {results['metadatas'][0]['speaker']}")
+        print(f"  안건: {results['metadatas'][0]['agenda']}")
+        print(f"  내용: {results['documents'][0][:100]}...")
+    else:
+        print("❌ 저장된 데이터를 불러올 수 없습니다. (데이터가 None입니다)")
 
 
 def insert_all_jsons(

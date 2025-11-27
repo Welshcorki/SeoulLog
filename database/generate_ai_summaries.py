@@ -59,7 +59,7 @@ def chunk_text(text, chunk_size=2000):
 
 async def summarize_text_chunk_async(text_chunk, agenda_title, chunk_index, cost_tracker=None):
     """텍스트 청크 하나를 요약 (비동기)"""
-    if not client or not text_chunk.strip():
+    if not client or not (text_chunk and text_chunk.strip()):
         return None
 
     try:
@@ -73,7 +73,10 @@ async def summarize_text_chunk_async(text_chunk, agenda_title, chunk_index, cost
             model='gemini-2.5-flash',
             contents=prompt
         )
-        summary = response.text.strip()
+        if response.text:
+            summary = response.text.strip()
+        else:
+            summary = "" # 혹은 에러 처리
 
         # 비용 추적
         if cost_tracker and hasattr(response, 'usage_metadata'):
@@ -121,7 +124,8 @@ async def summarize_agenda_async(chunk_summaries, agenda_title, cost_tracker=Non
             model='gemini-2.5-flash',
             contents=prompt
         )
-        summary = response.text.strip()
+        text = response.text
+        summary = text.strip() if text else ""
 
         # 비용 추적
         if cost_tracker and hasattr(response, 'usage_metadata'):
@@ -172,7 +176,8 @@ async def extract_key_issues_async(chunk_summaries, agenda_title, cost_tracker=N
             model='gemini-2.5-flash',
             contents=prompt
         )
-        text = response.text.strip()
+        raw_text = response.text
+        text = raw_text.strip() if raw_text else ""
 
         # 비용 추적
         if cost_tracker and hasattr(response, 'usage_metadata'):

@@ -5,7 +5,7 @@ OpenAI API 사용량 및 비용을 추적합니다.
 """
 
 import tiktoken
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 
 class CostTracker:
@@ -78,7 +78,7 @@ class CostTracker:
         self,
         text: str,
         model: str = "text-embedding-3-small"
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """
         Embedding API 비용 추가
 
@@ -122,7 +122,7 @@ class CostTracker:
         input_tokens: int,
         output_tokens: int,
         model: str = "gpt-4o-mini"
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """
         Chat API 비용 추가
 
@@ -172,7 +172,7 @@ class CostTracker:
         input_tokens: int,
         output_tokens: int,
         model: str = "gemini-2.5-flash"
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """
         Gemini API 비용 추가
 

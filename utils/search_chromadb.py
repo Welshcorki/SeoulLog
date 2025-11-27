@@ -7,7 +7,7 @@ ChromaDB에서 회의록 검색 스크립트
 
 import chromadb
 from chromadb.config import Settings
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -161,7 +161,12 @@ class MeetingSearcher:
         """
         # ChromaDB에서 모든 문서의 메타데이터 가져오기
         all_data = self.collection.get(include=["metadatas"])
-        speakers = set(meta["speaker"] for meta in all_data["metadatas"])
+
+        # [수정된 부분] 데이터가 없으면 빈 리스트([]) 사용
+        metas = all_data.get("metadatas") or []
+        
+        # 안전하게 순회
+        speakers = set(str(meta["speaker"]) for meta in metas)
         return sorted(list(speakers))
 
     def get_all_dates(self) -> List[str]:
@@ -172,7 +177,10 @@ class MeetingSearcher:
             회의 날짜 리스트
         """
         all_data = self.collection.get(include=["metadatas"])
-        dates = set(meta["meeting_date"] for meta in all_data["metadatas"])
+        # [수정] 여기도 똑같이 안전하게 처리
+        metas = all_data.get("metadatas") or []
+        
+        dates = set(str(meta["meeting_date"]) for meta in metas)
         return sorted(list(dates))
 
     def get_meeting_info(self, meeting_date: str) -> Dict:
@@ -200,7 +208,7 @@ class MeetingSearcher:
             }
         return {}
 
-    def _format_results(self, query: str, results: Dict, n_results: int) -> Dict:
+    def _format_results(self, query: str, results: Any, n_results: int) -> Dict:
         """
         검색 결과 포맷팅
 
@@ -218,8 +226,15 @@ class MeetingSearcher:
             "results": []
         }
 
+        if not results or not results.get("ids") or not results["ids"][0]:
+            return formatted
+
         for i in range(len(results["documents"][0])):
             distance = results["distances"][0][i]
+            chunk_id = results["ids"][0][i]
+            
+            # doc_path 추출 (chunk_id에서 '_chunk_' 이전 부분)
+            doc_path = chunk_id.split('_chunk_')[0] + ".json"
 
             # Cosine distance (0~2)를 cosine similarity (0~1)로 올바르게 변환
             # distance 0 = similarity 1.0 (완전 일치)
@@ -230,7 +245,8 @@ class MeetingSearcher:
 
             result = {
                 "rank": i + 1,
-                "similarity": similarity_score,  # 수정된 계산
+                "similarity": similarity_score,
+                "doc_path": doc_path, # doc_path 추가
                 "speaker": results["metadatas"][0][i].get("speaker", ""),
                 "agenda": results["metadatas"][0][i].get("agenda", ""),
                 "meeting_title": results["metadatas"][0][i].get("meeting_title", ""),

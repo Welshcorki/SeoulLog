@@ -78,7 +78,8 @@ def download_file(url: str, save_path: str) -> bool:
         return False
 
 
-async def summarize_pdf_with_gemini(file_path: str, title: str, cost_tracker: CostTracker = None) -> str:
+# cost_tracker가 CostTracker 객체일 수도 있고, None일 수도 있다는 뜻입니다.
+async def summarize_pdf_with_gemini(file_path: str, title: str, cost_tracker: Optional[CostTracker] = None) -> str:
     """
     Gemini File API로 PDF 요약 생성 (범용 프롬프트, 비동기)
 
@@ -149,7 +150,8 @@ async def summarize_pdf_with_gemini(file_path: str, title: str, cost_tracker: Co
             ]
         )
 
-        summary = response.text.strip()
+        text = response.text
+        summary = text.strip() if text else ""
 
         # 비용 추적
         if cost_tracker and hasattr(response, 'usage_metadata'):
@@ -175,7 +177,7 @@ async def summarize_pdf_with_gemini(file_path: str, title: str, cost_tracker: Co
         return "첨부 문서 요약을 생성할 수 없습니다."
 
 
-async def process_agenda_attachments(agenda_id: str, agenda_title: str, attachments_json: str, conn: sqlite3.Connection, idx: int, total: int, cost_tracker: CostTracker = None) -> Optional[tuple]:
+async def process_agenda_attachments(agenda_id: str, agenda_title: str, attachments_json: str, conn: sqlite3.Connection, idx: int, total: int, cost_tracker: Optional[CostTracker] = None) -> Optional[tuple]:
     """
     안건의 첨부 문서를 처리하여 요약 생성 (비동기)
 
